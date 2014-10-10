@@ -421,7 +421,6 @@ class StridedScanOrderIterator
         return *this;
     }
     
-  protected:
     StridedScanOrderIterator(base_type const & base) 
         : base_type(base)
     {}
