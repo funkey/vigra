@@ -1693,13 +1693,13 @@ inline bool greaterEqualAtTolerance(T1 l, T2 r)
 
 #define VIGRA_MATH_FUNC_HELPER(TYPE) \
     inline TYPE clipLower(const TYPE t){ \
-        return t < static_cast<TYPE>(0.0) ? static_cast<TYPE>(0.0) : t; \
+        return t <= static_cast<TYPE>(0.0) ? static_cast<TYPE>(0.0) : t; \
     } \
     inline TYPE clipLower(const TYPE t,const TYPE valLow){ \
-        return t < static_cast<TYPE>(valLow) ? static_cast<TYPE>(valLow) : t; \
+        return t <= static_cast<TYPE>(valLow) ? static_cast<TYPE>(valLow) : t; \
     } \
     inline TYPE clipUpper(const TYPE t,const TYPE valHigh){ \
-        return t > static_cast<TYPE>(valHigh) ? static_cast<TYPE>(valHigh) : t; \
+        return t >= static_cast<TYPE>(valHigh) ? static_cast<TYPE>(valHigh) : t; \
     } \
     inline TYPE clip(const TYPE t,const TYPE valLow, const TYPE valHigh){ \
         if(t<valLow) \
