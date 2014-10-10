@@ -794,7 +794,7 @@ template <class TAG>
 struct ApplyHistogramOptions
 {
     template <class Accu>
-    static void exec(Accu & a, HistogramOptions const & options)
+    static void exec(Accu & /*a*/, HistogramOptions const & /*options*/)
     {}
 };
 
@@ -802,7 +802,7 @@ template <class TAG>
 struct ApplyHistogramOptions<StandardQuantiles<TAG> >
 {
     template <class Accu>
-    static void exec(Accu & a, HistogramOptions const & options)
+    static void exec(Accu & /*a*/, HistogramOptions const & /*options*/)
     {}
 };
 
@@ -991,11 +991,11 @@ template <class A, unsigned CurrentPass, bool allowRuntimeActivation, unsigned W
 struct DecoratorImpl
 {
     template <class T>
-    static void exec(A & a, T const & t)
+    static void exec(A & /*a*/, T const & /*t*/)
     {}
 
     template <class T>
-    static void exec(A & a, T const & t, double weight)
+    static void exec(A & /*a*/, T const & /*t*/, double /*weight*/)
     {}
 };
 
@@ -3820,7 +3820,7 @@ class PowerSum<0>
     struct Impl
     : public SumBaseImpl<BASE, T, double, double>
     {
-        void update(T const & t)
+        void update(T const & /*t*/)
         {
             ++this->value_;
         }
@@ -4239,7 +4239,7 @@ class Central<PowerSum<3> >
             }
         }
     
-        void update(U const & t)
+        void update(U const & /*t*/)
         {
             using namespace vigra::multi_math;            
             this->value_ += pow(getDependency<Centralize>(*this), 3);
@@ -4300,7 +4300,7 @@ class Central<PowerSum<4> >
             }
         }
     
-        void update(U const & t)
+        void update(U const & /*t*/)
         {
             using namespace vigra::multi_math;            
             this->value_ += pow(getDependency<Centralize>(*this), 4);
