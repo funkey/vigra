@@ -49,6 +49,11 @@
 
 using namespace vigra;
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#endif
+
 template <unsigned int N>
 struct NeighborhoodTests
 {
@@ -104,7 +109,7 @@ struct NeighborhoodTests
         shouldEqual(gridGraphMaxDegree(N, DirectNeighborhood), neighborCount);
         
         Shape pos, neg, strides = cumprod(Shape(3)) / 3;
-        for(int k=0; k<neighborCount; ++k)
+        for(unsigned k=0; k<neighborCount; ++k)
         {
             shouldEqual(sum(abs(neighborOffsets[k])), 1); // test that it is a direct neighbor 
             
@@ -147,7 +152,7 @@ struct NeighborhoodTests
                 shouldEqual(neighborExists[borderType].size(), neighborCount);
                 checkNeighborCodes[borderType] = 1;
                 
-                for(int k=0; k<neighborCount; ++k)
+                for(unsigned k=0; k<neighborCount; ++k)
                 {
                     // check that neighbors are correctly marked as inside or outside in neighborExists
                     shouldEqual(va.isInside(vi.point()+neighborOffsets[k]), neighborExists[borderType][k]);
@@ -171,7 +176,7 @@ struct NeighborhoodTests
         shouldEqual((GridGraphMaxDegree<N, IndirectNeighborhood>::value), neighborCount);
         shouldEqual(gridGraphMaxDegree(N, IndirectNeighborhood), neighborCount);
         
-        for(int k=0; k<neighborCount; ++k)
+        for(unsigned k=0; k<neighborCount; ++k)
         {
             shouldEqual(abs(neighborOffsets[k]).maximum(), 1); // check that offset is at most 1 in any direction
                  
@@ -549,7 +554,7 @@ struct GridGraphTests
     template <class DirectedTag, NeighborhoodType NType>
     void testBasics()
     {
-        using namespace boost;
+        using namespace boost_graph;
         typedef GridGraph<N, DirectedTag> G;
         
         static const bool directed = IsSameType<DirectedTag, directed_tag>::value;
@@ -594,7 +599,7 @@ struct GridGraphTests
     template <class DirectedTag, NeighborhoodType NType>
     void testVertexIterator()
     {
-        using namespace boost;
+        using namespace boost_graph;
         
         typedef GridGraph<N, DirectedTag> Graph;
 
@@ -636,8 +641,8 @@ struct GridGraphTests
                 shouldEqual(g.forward_degree(j) + g.back_degree(j), g.out_degree(j));
                 shouldEqual(g.in_degree(j), g.out_degree(j));
                 shouldEqual(g.degree(j), g.isDirected() ? 2*g.out_degree(j) : g.out_degree(j));
-                shouldEqual(g.out_degree(j), boost::out_degree(*j, g));
-                shouldEqual(g.in_degree(j), boost::in_degree(*j, g));
+                shouldEqual(g.out_degree(j), boost_graph::out_degree(*j, g));
+                shouldEqual(g.in_degree(j), boost_graph::in_degree(*j, g));
                 shouldEqual(g.out_degree(j), outDegreeMap[*j]);
                 shouldEqual(g.in_degree(j), inDegreeMap[*j]);
 
@@ -663,7 +668,7 @@ struct GridGraphTests
     template <class DirectedTag, NeighborhoodType NType>
     void testNeighborIterator()
     {
-        using namespace boost;
+        using namespace boost_graph;
         
         static const bool directed = IsSameType<DirectedTag, directed_tag>::value;
         
@@ -871,7 +876,7 @@ struct GridGraphTests
     template <class DirectedTag, NeighborhoodType NType>
     void testBackNeighborIterator()
     {
-        using namespace boost;
+        using namespace boost_graph;
         
         static const bool directed = IsSameType<DirectedTag, directed_tag>::value;
         
@@ -1023,7 +1028,7 @@ struct GridGraphTests
     template <class DirectedTag, NeighborhoodType NType>
     void testEdgeIterator()
     {
-        using namespace boost;
+        using namespace boost_graph;
         
         static const bool directed = IsSameType<DirectedTag, directed_tag>::value;
         
@@ -1108,7 +1113,7 @@ struct GridGraphTests
     template <class DirectedTag, NeighborhoodType NType>
     void testArcIterator()
     {
-        using namespace boost;
+        using namespace boost_graph;
         
         static const bool directed = IsSameType<DirectedTag, directed_tag>::value;
         
@@ -1300,3 +1305,7 @@ int main(int argc, char **argv)
 
     return (failed != 0);
 }
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif

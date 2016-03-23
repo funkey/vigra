@@ -615,7 +615,7 @@ inline void
 copyMultiArray(MultiArrayView<N, T1, S1> const & source,
                MultiArrayView<N, T2, S2> dest)
 {
-    for(unsigned int k=0; k<N; ++k)
+    for(unsigned k=0; k<N; ++k)
         vigra_precondition(source.shape(k) == dest.shape(k) || source.shape(k) == 1 || 1 == dest.shape(k),
             "copyMultiArray(): shape mismatch between input and output.");
     if(source.shape() == dest.shape())
@@ -754,7 +754,7 @@ transformMultiArrayImpl(SrcIterator s, SrcShape const & sshape, SrcAccessor src,
 /** \brief Transform a multi-dimensional array with a unary function or functor.
 
     Note: The effect of this function can often be achieved in a simpler and
-    more readable way by means of \ref MultiMathModule "array experessions".
+    more readable way by means of \ref MultiMathModule "array expressions".
     
     This function can be applied in three modes:
     
@@ -1201,7 +1201,7 @@ combineTwoMultiArraysImpl(
 /** \brief Combine two multi-dimensional arrays into one using a binary function or functor.
 
     Note: The effect of this function can often be achieved in a simpler and
-    more readable way by means of \ref MultiMathModule "array experessions".
+    more readable way by means of \ref MultiMathModule "array expressions".
     
     This function can be applied in three modes:
     
@@ -1583,7 +1583,7 @@ combineThreeMultiArraysImpl(SrcIterator1 s1, SrcShape const & shape, SrcAccessor
            ternary function or functor.
 
     Note: The effect of this function can often be achieved in a simpler and
-    more readable way by means of \ref MultiMathModule "array experessions".
+    more readable way by means of \ref MultiMathModule "array expressions".
     
     Except for the fact that it operates on three input arrays, this function is
     identical to the standard mode of \ref combineTwoMultiArrays() (reduce and expand 

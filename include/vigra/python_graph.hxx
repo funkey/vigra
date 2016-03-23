@@ -78,7 +78,7 @@ template<class GRAPH>
 struct NodeHolder :  GRAPH::Node
 {
     typedef typename GRAPH::Node Node;
-    NodeHolder(const lemon::Invalid & iv = lemon::INVALID)
+    NodeHolder(const lemon::Invalid & /*iv*/ = lemon::INVALID)
     : Node(lemon::INVALID),
       graph_(NULL)
     {}
@@ -106,7 +106,7 @@ struct EdgeHolder : GRAPH::Edge
 {
 
     typedef typename GRAPH::Edge Edge;
-    EdgeHolder(const lemon::Invalid & iv = lemon::INVALID)
+    EdgeHolder(const lemon::Invalid & /*iv*/ = lemon::INVALID)
     : Edge(lemon::INVALID),
       graph_(NULL)
     {}
@@ -139,7 +139,7 @@ struct EdgeHolder : GRAPH::Edge
 template<class GRAPH>
 struct ArcHolder: GRAPH::Arc {
     typedef typename GRAPH::Arc Arc;
-    ArcHolder(const lemon::Invalid & iv = lemon::INVALID)
+    ArcHolder(const lemon::Invalid & /*iv*/ = lemon::INVALID)
     : Arc(lemon::INVALID),
       graph_(NULL)
     {}
@@ -190,6 +190,20 @@ struct ArcToEdgeHolder{
     }
     const GRAPH * graph_;
 };
+
+template<class GRAPH>
+struct ArcToArcHolder{
+    typedef typename GRAPH::Edge Edge;
+    typedef typename GRAPH::Arc Arc;
+    ArcToArcHolder(const GRAPH & graph)
+    : graph_(&graph){
+    }
+    ArcHolder<GRAPH> operator()(const Arc & arc)const{
+        return ArcHolder<GRAPH>(*graph_,arc);
+    }
+    const GRAPH * graph_;
+};
+
 
 template<class GRAPH>
 struct NodeToNodeHolder{
@@ -294,8 +308,8 @@ struct IncEdgeIteratorHolder{
     typedef typename GRAPH::Node Node;
     typedef typename GRAPH::Edge Edge;
     typedef typename GRAPH::OutArcIt Iter;
-    typedef detail_python_graph::ArcToEdgeHolder<GRAPH> Transform;
-    typedef boost::transform_iterator<Transform ,Iter ,EdgeHolder<GRAPH>, EdgeHolder<GRAPH> > const_iterator;
+    typedef detail_python_graph::ArcToArcHolder<GRAPH> Transform;
+    typedef boost::transform_iterator<Transform ,Iter ,ArcHolder<GRAPH>, ArcHolder<GRAPH> > const_iterator;
     IncEdgeIteratorHolder(const GRAPH & graph,const Node & node)
     : graph_(&graph),
       node_(node){
@@ -517,13 +531,13 @@ public:
         return NumpyArray<AD,int>::ArrayTraits::taggedShape(IntrinsicGraphShape<Graph>::intrinsicArcMapShape(graph),"e");
     }
 
-    static AxisInfo  axistagsNodeMap(const Graph & graph){
+    static AxisInfo  axistagsNodeMap(const Graph & /*graph*/){
         return AxisInfo("n");
     }
-    static AxisInfo  axistagsEdgeMap(const Graph & graph){
+    static AxisInfo  axistagsEdgeMap(const Graph & /*graph*/){
         return AxisInfo("e");
     }
-    static AxisTags  axistagsArcMap(const Graph & graph){
+    static AxisTags  axistagsArcMap(const Graph & /*graph*/){
         return AxisInfo("e");
     }
 };
@@ -547,13 +561,13 @@ public: \
     static TaggedShape  taggedArcMapShape(const Graph & graph){  \
        return NumpyArray<AD,int>::ArrayTraits::taggedShape(IntrinsicGraphShape<Graph>::intrinsicArcMapShape(graph),ta);  \
     } \
-    static AxisInfo  axistagsNodeMap(const Graph & graph){ \
+    static AxisInfo  axistagsNodeMap(const Graph & /*graph*/){ \
         return AxisInfo(tn); \
     } \
-    static AxisInfo  axistagsEdgeMap(const Graph & graph){ \
+    static AxisInfo  axistagsEdgeMap(const Graph & /*graph*/){ \
         return AxisInfo(te); \
     } \
-    static AxisTags  axistagsArcMap(const Graph & graph){ \
+    static AxisTags  axistagsArcMap(const Graph & /*graph*/){ \
         return AxisInfo(ta); \
     } \
 };
@@ -743,27 +757,70 @@ public:
         }
 
     }
-
-    void mergeEdges(const Edge & a,const Edge & b){
-        const EdgeHolderType aa(mergeGraph_,a);
-        const EdgeHolderType bb(mergeGraph_,b);
-        object_.attr("mergeEdges")(aa,bb);
+    bool done(){
+        bool retVal;
+        try{
+            retVal =  boost::python::extract<bool>(object_.attr("done")());
+        }
+        catch(std::exception & e){
+            std::cout<<"reason: "<<e.what()<<"\n";
+            throw std::runtime_error("error while calling cluster_operators PythonOperator::done");
+        }
+        return retVal;
     }
-    void mergeNodes(const Node & a,const Node & b){
-        const NodeHolderType aa(mergeGraph_,a);
-        const NodeHolderType bb(mergeGraph_,b);
-        object_.attr("mergeNodes")(aa,bb);
+    void mergeEdges(const Edge & a,const Edge & b){
+        try{
+            const EdgeHolderType aa(mergeGraph_,a);
+            const EdgeHolderType bb(mergeGraph_,b);
+            object_.attr("mergeEdges")(aa,bb);
+        }
+        catch(std::exception & e){
+            std::cout<<"reason: "<<e.what()<<"\n";
+            throw std::runtime_error("error while calling cluster_operators PythonOperator::mergeEdges");
+        }
+    }
+    void mergeNodes(const Node & a,const Node & b){\
+        try{
+            const NodeHolderType aa(mergeGraph_,a);
+            const NodeHolderType bb(mergeGraph_,b);
+            object_.attr("mergeNodes")(aa,bb);
+        }
+        catch(std::exception & e){
+            std::cout<<"reason: "<<e.what()<<"\n";
+            throw std::runtime_error("error while calling cluster_operators PythonOperator::mergeNodes");
+        }
     }
     void eraseEdge(const Edge & e){
-        const EdgeHolderType ee(mergeGraph_,e);
-        object_.attr("eraseEdge")(ee);
+        try{
+            const EdgeHolderType ee(mergeGraph_,e);
+            object_.attr("eraseEdge")(ee);
+        }
+        catch(std::exception & e){
+            std::cout<<"reason: "<<e.what()<<"\n";
+            throw std::runtime_error("error while calling cluster_operators PythonOperator::eraseEdge");
+        }
     }
     Edge contractionEdge(){
-        EdgeHolderType eh = boost::python::extract<EdgeHolderType>(object_.attr("contractionEdge")());
+        EdgeHolderType eh;
+        try{
+            eh = boost::python::extract<EdgeHolderType>(object_.attr("contractionEdge")());
+        }
+        catch(std::exception & e){
+            std::cout<<"reason: "<<e.what()<<"\n";
+            throw std::runtime_error("error while calling cluster_operators PythonOperator::contractionEdge");
+        }
         return eh;
     }
     WeightType contractionWeight()const{
-        return boost::python::extract<WeightType>(object_.attr("contractionWeight")());
+        WeightType w;
+        try{
+            w = boost::python::extract<WeightType>(object_.attr("contractionWeight")());
+        }
+        catch(std::exception & e){
+            std::cout<<"reason: "<<e.what()<<"\n";
+            throw std::runtime_error("error while calling cluster_operators PythonOperator::contractionWeight");
+        }
+        return w;
     }
 
     MergeGraph & mergeGraph(){

@@ -693,11 +693,11 @@ class FFTWAllocator
     {}
     
     template<class Other>
-    FFTWAllocator(const FFTWAllocator<Other>& right) throw()
+    FFTWAllocator(const FFTWAllocator<Other>& /*right*/) throw()
     {}
     
     template<class Other>
-    FFTWAllocator& operator=(const FFTWAllocator<Other>& right)
+    FFTWAllocator& operator=(const FFTWAllocator<Other>& /*right*/)
     {
         return *this;
     }
@@ -707,7 +707,7 @@ class FFTWAllocator
         return (pointer)fftw_malloc(count * sizeof(Ty));
     }
     
-    void deallocate(pointer ptr, size_type count)
+    void deallocate(pointer ptr, size_type /*count*/)
     {
         fftw_free(ptr);
     }
@@ -761,11 +761,11 @@ class allocator<vigra::FFTWComplex<Real> >
     {}
     
     template<class Other>
-    allocator(const allocator<Other>& right) throw()
+    allocator(const allocator<Other>& /*right*/) throw()
     {}
     
     template<class Other>
-    allocator& operator=(const allocator<Other>& right)
+    allocator& operator=(const allocator<Other>& /*right*/)
     {
         return *this;
     }
@@ -1004,7 +1004,7 @@ inline typename FFTWComplex<R>::NormType abs(const FFTWComplex<R> &a)
     return a.magnitude();
 }
 
-    /// pahse
+    /// phase
 template <class R>
 inline R arg(const FFTWComplex<R> &a)
 {
@@ -1390,6 +1390,32 @@ class FFTWMagnitudeAccessor
     template <class ITERATOR, class DIFFERENCE>
     value_type operator()(ITERATOR const & i, DIFFERENCE d) const {
         return (i[d]).magnitude();
+    }
+};
+
+    /** Calculate natural logarithm of magnitude of complex number on the fly.
+
+    <b>\#include</b> \<vigra/fftw3.hxx\> (for FFTW 3) or<br>
+    <b>\#include</b> \<vigra/fftw.hxx\> (for deprecated FFTW 2)<br>
+    Namespace: vigra
+    */
+template <class Real = double>
+class FFTWLogMagnitudeAccessor
+{
+  public:
+        /// The accessor's value type.
+    typedef Real value_type;
+
+        /// Read natural log of magnitude at iterator position.
+    template <class ITERATOR>
+    value_type operator()(ITERATOR const & i) const {
+        return std::log((*i).magnitude() + 1);
+    }
+
+        /// Read natural log of magnitude at offset from iterator position.
+    template <class ITERATOR, class DIFFERENCE>
+    value_type operator()(ITERATOR const & i, DIFFERENCE d) const {
+        return std::log((i[d]).magnitude() + 1);
     }
 };
 
@@ -2374,7 +2400,7 @@ template <class FilterType, class DestImage>
 void applyFourierFilterFamilyImpl(
     FFTWComplexImage::const_traverser srcUpperLeft,
     FFTWComplexImage::const_traverser srcLowerRight,
-    FFTWComplexImage::ConstAccessor sa,
+    FFTWComplexImage::ConstAccessor /*sa*/,
     const ImageArray<FilterType> &filters,
     ImageArray<DestImage> &results)
 {

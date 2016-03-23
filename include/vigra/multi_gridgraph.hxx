@@ -445,8 +445,13 @@ class GridGraphOutEdgeIterator
       edge_descriptor_(),
       index_(0)
     {
-        unsigned int nbtype = g.get_border_type(v);
-        init(&(*g.edgeIncrementArray())[nbtype], &(*g.neighborIndexArray(BackEdgesOnly))[nbtype], *v, opposite);
+        if(v.isValid()){
+            unsigned int nbtype = g.get_border_type(v);
+            init(&(*g.edgeIncrementArray())[nbtype], &(*g.neighborIndexArray(BackEdgesOnly))[nbtype], *v, opposite);
+        }
+        else{
+            index_ = (index_type)neighborIndices_->size();
+        }
     }
 
     template <class DirectedTag>
@@ -458,8 +463,13 @@ class GridGraphOutEdgeIterator
       edge_descriptor_(),
       index_(0)
     {
-        unsigned int nbtype = g.get_border_type(v);
-        init(&(*g.edgeIncrementArray())[nbtype], &(*g.neighborIndexArray(BackEdgesOnly))[nbtype], v, opposite);
+        if(isInside(g, v)){
+            unsigned int nbtype = g.get_border_type(v);
+            init(&(*g.edgeIncrementArray())[nbtype], &(*g.neighborIndexArray(BackEdgesOnly))[nbtype], v, opposite);
+        }
+        else{
+            index_ = (index_type)neighborIndices_->size();
+        }
     }
     
     GridGraphOutEdgeIterator & operator++()
@@ -771,6 +781,42 @@ public:
         }
     }
 
+
+
+    template <class DirectedTag>
+    GridGraphEdgeIterator(GridGraph<N, DirectedTag> const & g, const typename  GridGraph<N, DirectedTag>::Edge & edge)
+    : neighborOffsets_(g.edgeIncrementArray()),
+      neighborIndices_(g.neighborIndexArray(BackEdgesOnly)),
+      vertexIterator_(g,g.u(edge)),
+      outEdgeIterator_(g, vertexIterator_)
+    {
+        if(vertexIterator_.isValid()){
+            // vigra_precondition(edge!=lemon::INVALID,"no invalid edges here");
+            // vigra_precondition( allLess(*vertexIterator_,g.shape()), "fixme1");
+            // vigra_precondition( allGreaterEqual(*vertexIterator_,shape_type() ), "fixme2");
+
+
+            if(edge[N] >= 0  && edge[N] < g.maxUniqueDegree( ) && 
+                (*( g.neighborExistsArray()))[vertexIterator_.borderType()][edge[N]] ){
+                while(*outEdgeIterator_!=edge){
+                    ++outEdgeIterator_;
+                }
+            }
+            else{
+                vertexIterator_ = vertexIterator_.getEndIterator();
+            }
+
+            // vigra_precondition(edge[N] >= 0 && edge[N] < g.maxUniqueDegree(),"fixme3");
+            // vigra_precondition(    ,"fixme4");
+            // vigra_precondition(!outEdgeIterator_.atEnd(),"fixme5");
+
+
+        }
+    }
+
+
+
+
     GridGraphEdgeIterator & operator++()
     {
         ++outEdgeIterator_;
@@ -1011,8 +1057,8 @@ VIGRA_LEMON_INVALID_COMPARISON(GridGraphArcIterator)
 
 #undef VIGRA_LEMON_INVALID_COMPARISON
 
-using boost::directed_tag;
-using boost::undirected_tag;
+using boost_graph::directed_tag;
+using boost_graph::undirected_tag;
 
 namespace detail {
 
@@ -1033,7 +1079,7 @@ struct GridGraphBase<N, directed_tag>
         typedef typename base_type::value_type             value_type; 
         typedef typename base_type::reference              reference;
         typedef typename base_type::const_reference        const_reference;
-        typedef boost::read_write_property_map_tag         category;
+        typedef boost_graph::read_write_property_map_tag   category;
         
         typedef lemon::True                                ReferenceMapTag;
         typedef key_type                                   Key;
@@ -1098,7 +1144,7 @@ struct GridGraphBase<N, undirected_tag>
         typedef typename base_type::value_type             value_type; 
         typedef typename base_type::reference              reference;
         typedef typename base_type::const_reference        const_reference;
-        typedef boost::read_write_property_map_tag         category;
+        typedef boost_graph::read_write_property_map_tag   category;
         
         typedef lemon::True                                ReferenceMapTag;
         typedef key_type                                   Key;
@@ -1478,12 +1524,12 @@ public:
                   (API: boost::graph, use via 
                   <tt>boost::graph_traits<Graph>::edge_parallel_category</tt>).
         */
-    typedef boost::disallow_parallel_edge_tag       edge_parallel_category;
+    typedef boost_graph::disallow_parallel_edge_tag  edge_parallel_category;
     
         /** \brief The graph does not define internal property maps (API: boost::graph,
              use via <tt>boost::graph_traits<Graph>::vertex_property_type</tt>).
         */
-    typedef boost::no_property                      vertex_property_type; // we only support "external properties".
+    typedef boost_graph::no_property                 vertex_property_type; // we only support "external properties".
     // FIXME: Maybe support the vertex -> coordinate map (identity) as the only internal property map
     // and additionally the vertex_descriptor -> ID map (vertex_index = SOI).
 
@@ -1491,11 +1537,11 @@ public:
              use via <tt>boost::graph_traits<Graph>::traversal_category</tt>).
         */
     struct traversal_category 
-    : virtual public boost::bidirectional_graph_tag,
-      virtual public boost::adjacency_graph_tag,
-      virtual public boost::vertex_list_graph_tag,
-      virtual public boost::edge_list_graph_tag,
-      virtual public boost::adjacency_matrix_tag
+    : virtual public boost_graph::bidirectional_graph_tag,
+      virtual public boost_graph::adjacency_graph_tag,
+      virtual public boost_graph::vertex_list_graph_tag,
+      virtual public boost_graph::edge_list_graph_tag,
+      virtual public boost_graph::adjacency_matrix_tag
     {};
     
         // internal types
@@ -1580,7 +1626,7 @@ public:
         typedef typename base_type::value_type             value_type; 
         typedef typename base_type::reference              reference;
         typedef typename base_type::const_reference        const_reference;
-        typedef boost::read_write_property_map_tag         category;
+        typedef boost_graph::read_write_property_map_tag   category;
         
         typedef lemon::True                                ReferenceMapTag;
         typedef key_type                                   Key;
@@ -1668,7 +1714,7 @@ public:
         typedef typename base_type::value_type             value_type; 
         typedef typename base_type::reference              reference;
         typedef typename base_type::const_reference        const_reference;
-        typedef boost::read_write_property_map_tag         category;
+        typedef boost_graph::read_write_property_map_tag   category;
         
         typedef lemon::True                                ReferenceMapTag;
         typedef key_type                                   Key;
@@ -1797,7 +1843,7 @@ public:
         typedef Key                                     key_type;
         typedef Value                                   value_type; 
         typedef Value const &                           reference;
-        typedef boost::readable_property_map_tag        category;
+        typedef boost_graph::readable_property_map_tag  category;
 
         IndexMap()
         {}
@@ -1829,7 +1875,7 @@ public:
         typedef Key                                     key_type;
         typedef Value                                   value_type; 
         typedef Value const &                           reference;
-        typedef boost::readable_property_map_tag        category;
+        typedef boost_graph::readable_property_map_tag  category;
         
             /** \brief Construct property map for the given graph.
             */
@@ -1863,7 +1909,7 @@ public:
         typedef Key                                     key_type;
         typedef Value                                   value_type; 
         typedef Value const &                           reference;
-        typedef boost::readable_property_map_tag        category;
+        typedef boost_graph::readable_property_map_tag  category;
         
             /** \brief Construct property map for the given graph.
             */
@@ -1878,7 +1924,6 @@ public:
             return graph_.out_degree(key);
         }
         
-      protected:
       
         GridGraph const & graph_;
     };
@@ -2657,6 +2702,11 @@ public:
                    : &neighborIndices_;
     }
 
+    NeighborExistsArray const * neighborExistsArray() const
+    {
+        return &neighborExists_;
+    }
+
   protected:
     NeighborOffsetArray neighborOffsets_;
     NeighborExistsArray neighborExists_;
@@ -2668,17 +2718,28 @@ public:
     NeighborhoodType neighborhoodType_;
 };
 
+template<unsigned int N, class DirectedTag>
+inline
+bool
+isInside(GridGraph<N, DirectedTag> const & g,
+         typename GridGraph<N, DirectedTag>::vertex_descriptor const & v) 
+{
+    return allLess(v, g.shape()) && allGreaterEqual(v, typename MultiArrayShape<N>::type());
+}
+
 //@}
+
+#ifdef WITH_BOOST_GRAPH
 
 } // namespace vigra
 
 namespace boost {
 
-/** \addtogroup BoostGraphExtensions GridGraph additions to namespace <tt>boost</tt>
-        
-        provides the required functionality to make \ref vigra::GridGraph compatible to the boost::graph library.
-*/
-//@{
+#else
+
+namespace boost_graph {
+
+#endif 
 
 
 
@@ -2689,7 +2750,7 @@ struct property_traits<vigra::MultiArray<N, T, Acc> >
     typedef typename type::key_type                  key_type;
     typedef typename type::value_type                value_type; 
     typedef typename type::reference                 reference;
-    typedef boost::read_write_property_map_tag       category;
+    typedef read_write_property_map_tag              category;
 };
 
 template <unsigned int N, class T, class Acc>
@@ -2699,7 +2760,7 @@ struct property_traits<vigra::MultiArray<N, T, Acc> const>
     typedef typename type::key_type                  key_type;
     typedef typename type::value_type                value_type; 
     typedef typename type::const_reference           reference;
-    typedef boost::readable_property_map_tag         category;
+    typedef readable_property_map_tag                category;
 };
 
 template <unsigned int N, class T, class Stride>
@@ -2709,7 +2770,7 @@ struct property_traits<vigra::MultiArrayView<N, T, Stride> >
     typedef typename type::key_type                   key_type;
     typedef typename type::value_type                 value_type; 
     typedef typename type::reference                  reference;
-    typedef boost::read_write_property_map_tag        category;
+    typedef read_write_property_map_tag               category;
 };
 
 template <unsigned int N, class T, class Stride>
@@ -2719,8 +2780,23 @@ struct property_traits<vigra::MultiArrayView<N, T, Stride> const>
     typedef typename type::key_type                       key_type;
     typedef typename type::value_type                     value_type; 
     typedef typename type::const_reference                reference;
-    typedef boost::readable_property_map_tag              category;
+    typedef readable_property_map_tag                     category;
 };
+
+#ifdef WITH_BOOST_GRAPH
+
+} // namespace boost
+
+namespace vigra {
+namespace boost_graph {
+
+#endif 
+
+/** \addtogroup BoostGraphExtensions GridGraph additions to namespace <tt>boost</tt>
+        
+        provides the required functionality to make \ref vigra::GridGraph compatible to the boost::graph library.
+*/
+//@{
 
     /** \brief Return number of outgoing edges of vertex \a v (API: boost).
     */
@@ -2944,73 +3020,9 @@ void put(vigra::MultiArrayView<N, T, Stride> & pmap,
 //}
 
 
-
-#if 0
-
-// property map support for mapping coordinates to scan-order indices:
-
-template<unsigned int N>
-struct IDMapper {
-    typedef typename vigra::GridGraph<N> graph_type;
-    typedef boost::readable_property_map_tag category;
-    typedef typename graph_type::index_type value_type;
-    typedef typename graph_type::vertex_descriptor key_type;
-    typedef const value_type& reference;
-
-
-    IDMapper(const graph_type &graph) 
-        : map_helper(graph.get_vertex_iterator())
-    {}
-
-    typename graph_type::vertex_iterator map_helper;
-};
-
-template<unsigned int N>
-struct property_map<vigra::GridGraph<N>, boost::vertex_index_t>
-{
-    typedef IDMapper<N> type;
-    typedef IDMapper<N> const_type;
-};
-
-
-template<unsigned int N>
-inline
-typename IDMapper<N>::value_type
-get(const IDMapper<N> & mapper, 
-    const typename IDMapper<N>::key_type &k)
-{ 
-    return (mapper.map_helper + k).scanOrderIndex();
-}
-
-
-template<unsigned int N>
-typename boost::property_map<vigra::GridGraph<N>, boost::vertex_index_t>::type
-//typename IDMapper<N>
-get(boost::vertex_index_t, const vigra::GridGraph<N> &graph) {
-    // return a lightweight wrapper for the CoupledIterator, which easily allows the conversion of 
-    // coordinates via its += operator followed by index().
-    return IDMapper<N>(graph);
-}
-
-// CHECK if required: also provide the direct (three-parameter) version for index lookup
-template<unsigned int N>
-typename vigra::GridGraph<N>::vertices_size_type
-get(boost::vertex_index_t, 
-    const vigra::GridGraph<N> &graph,
-    const typename vigra::GridGraph<N>::vertex_descriptor &v) {
-    return (IDMapper<N>(graph).map_helper + v).scanOrderIndex();
-}
-
-
-// TODO:
-// eventually provide an edge_index property map as well?
-// (edge_descriptor -> linear contiguous edge index)
-
-#endif
-
 //@}
 
-} // namespace boost
+}} // namespace vigra::boost_graph
 
 namespace lemon {
 
@@ -3049,14 +3061,6 @@ class OutDegMap<vigra::GridGraph<N, DirectedTag> >
 
 } // namespace lemon
 
-namespace vigra {
-namespace boost_graph { 
-
-//using boost::get;
-
-}} // namespace vigra::boost_graph
-
-
 namespace std {
 
 template<unsigned int N, class DirectedTag>
@@ -3077,6 +3081,22 @@ ostream& operator<<(ostream& out,
 
 } // namespace std
 
+#ifdef WITH_BOOST_GRAPH
+namespace boost {
+    using vigra::boost_graph::out_edges;
+    using vigra::boost_graph::out_degree;
+    using vigra::boost_graph::source;
+    using vigra::boost_graph::target;
+    using vigra::boost_graph::in_edges;
+    using vigra::boost_graph::in_degree;
+    using vigra::boost_graph::adjacent_vertices;
+    using vigra::boost_graph::vertices;
+    using vigra::boost_graph::edges;
+    using vigra::boost_graph::edge;
+    using vigra::boost_graph::num_vertices;
+    using vigra::boost_graph::num_edges;
+}
+#endif /* WITH_BOOST_GRAPH */
 
 
 #endif /* VIGRA_MULTI_GRIDGRAPH_HXX */

@@ -49,7 +49,6 @@
 
 using namespace std;
 using namespace vigra;
-using namespace blockwise_watersheds_detail;
 
 struct BlockwiseWatershedTest
 {
@@ -63,12 +62,12 @@ struct BlockwiseWatershedTest
         data_sets.push_back(Array(Shape(5)));
         data_sets.push_back(Array(Shape(997)));
         data_sets.push_back(Array(Shape(10000)));
-        for(int i = 0; i != data_sets.size(); ++i)
+        for(decltype(data_sets.size()) i = 0; i != data_sets.size(); ++i)
         {
             fillRandom(data_sets[i].begin(), data_sets[i].end(), 3);
         }
         
-        for(int i = 0; i != data_sets.size(); ++i)
+        for(decltype(data_sets.size()) i = 0; i != data_sets.size(); ++i)
         {
             const Array& data = data_sets[i];
             
@@ -79,7 +78,9 @@ struct BlockwiseWatershedTest
             typedef MultiArray<1, size_t> LabelArray;
             
             LabelArray tested_labels(data.shape());
-            size_t tested_label_number = unionFindWatershedsBlockwise(data, tested_labels, neighborhood, block_shape);
+            size_t tested_label_number = unionFindWatershedsBlockwise(data, tested_labels, 
+                                                                      BlockwiseLabelOptions().neighborhood(neighborhood)
+                                                                                             .blockShape(block_shape));
             
             LabelArray correct_labels(data.shape());
             size_t correct_label_number = watershedsMultiArray(data, correct_labels, neighborhood,
@@ -109,7 +110,7 @@ struct BlockwiseWatershedTest
         data_sets.push_back(Array(Shape(6)));
         data_sets.push_back(Array(Shape(1, 10, 100, 1)));
 
-        for(int i = 0; i != data_sets.size(); ++i)
+        for(decltype(data_sets.size()) i = 0; i != data_sets.size(); ++i)
         {
             fillRandom(data_sets[i].begin(), data_sets[i].end(), 3);
         }
@@ -125,18 +126,20 @@ struct BlockwiseWatershedTest
         neighborhoods.push_back(DirectNeighborhood);
         neighborhoods.push_back(IndirectNeighborhood);
 
-        for(int i = 0; i != data_sets.size(); ++i)
+        for(decltype(data_sets.size()) i = 0; i != data_sets.size(); ++i)
         {
             const Array& data = data_sets[i];
-            for(int j = 0; j != block_shapes.size(); ++j)
+            for(decltype(block_shapes.size()) j = 0; j != block_shapes.size(); ++j)
             {
                 const Shape& block_shape = block_shapes[j];
-                for(int k = 0; k != neighborhoods.size(); ++k)
+                for(decltype(neighborhoods.size()) k = 0; k != neighborhoods.size(); ++k)
                 {
                     NeighborhoodType neighborhood = neighborhoods[k];
                     
                     LabelArray tested_labels(data.shape());
-                    size_t tested_label_number = unionFindWatershedsBlockwise(data, tested_labels, neighborhood, block_shape);
+                    size_t tested_label_number = unionFindWatershedsBlockwise(data, tested_labels, 
+                                                                              BlockwiseLabelOptions().neighborhood(neighborhood)
+                                                                                                     .blockShape(block_shape));
 
                     LabelArray correct_labels(data.shape());
                     size_t correct_label_number = watershedsMultiArray(data, correct_labels, neighborhood,
@@ -192,7 +195,8 @@ struct BlockwiseWatershedTest
         Array data(shape);
         data.commitSubarray(Shape(0), oldschool_data);
         LabelArray tested_labels(shape);
-        size_t tested_label_number = unionFindWatershedsBlockwise(data, tested_labels, neighborhood);
+        size_t tested_label_number = unionFindWatershedsBlockwise(data, tested_labels, 
+                                                                  BlockwiseLabelOptions().neighborhood(neighborhood));
         shouldEqual(correct_label_number, tested_label_number);
         shouldEqual(equivalentLabels(tested_labels.begin(), tested_labels.end(),
                                      correct_labels.begin(), correct_labels.end()),

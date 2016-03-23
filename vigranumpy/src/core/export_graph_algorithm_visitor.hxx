@@ -26,7 +26,7 @@ namespace vigra{
 
 
 template<class GRAPH>
-class LemonGraphAlgorithmVisitor 
+class LemonGraphAlgorithmVisitor
 :   public boost::python::def_visitor<LemonGraphAlgorithmVisitor<GRAPH> >
 {
 public:
@@ -37,7 +37,7 @@ public:
 
     typedef LemonGraphAlgorithmVisitor<GRAPH> VisitorType;
     // Lemon Graph Typedefs
-    
+
     typedef typename Graph::index_type       index_type;
     typedef typename Graph::Edge             Edge;
     typedef typename Graph::Node             Node;
@@ -58,12 +58,18 @@ public:
     const static unsigned int NodeMapDim = IntrinsicGraphShape<Graph>::IntrinsicNodeMapDimension;
 
     typedef NumpyArray<EdgeMapDim,   Singleband<float > > FloatEdgeArray;
+    typedef NumpyArray<EdgeMapDim,   Singleband<UInt32> > UInt32EdgeArray;
+    typedef NumpyArray<EdgeMapDim,   Singleband<Int32 > > Int32EdgeArray;
     typedef NumpyArray<NodeMapDim,   Singleband<float > > FloatNodeArray;
     typedef NumpyArray<NodeMapDim,   Singleband<UInt32> > UInt32NodeArray;
     typedef NumpyArray<NodeMapDim,   Singleband<Int32 > > Int32NodeArray;
     typedef NumpyArray<NodeMapDim +1,Multiband <float > > MultiFloatNodeArray;
+    typedef NumpyArray<EdgeMapDim +1,Multiband <float > > MultiFloatEdgeArray;
+
 
     typedef NumpyScalarEdgeMap<Graph,FloatEdgeArray>         FloatEdgeArrayMap;
+    typedef NumpyScalarEdgeMap<Graph,UInt32EdgeArray>        UInt32EdgeArrayMap;
+    typedef NumpyScalarEdgeMap<Graph,Int32EdgeArray>         Int32EdgeArrayMap;
     typedef NumpyScalarNodeMap<Graph,FloatNodeArray>         FloatNodeArrayMap;
     typedef NumpyScalarNodeMap<Graph,UInt32NodeArray>        UInt32NodeArrayMap;
     typedef NumpyScalarNodeMap<Graph,Int32NodeArray>         Int32NodeArrayMap;
@@ -119,10 +125,24 @@ public:
                 python::arg("seeds"),
                 python::arg("backgroundLabel"),
                 python::arg("backgroundBias"),
+                python::arg("noBiasBelow") = 0.0,
                 python::arg("out")=python::object()
             ),
             "Seeded watersheds on a edge weighted graph"
         );
+
+
+        python::def("_shortestPathSegmentation",registerConverters(&pyShortestPathSegmentation),
+            (
+                python::arg("graph"),
+                python::arg("edgeWeights"),
+                python::arg("nodeWeights"),
+                python::arg("seeds"),
+                python::arg("out")=python::object()
+            ),
+            "Seeded shorted path segmentation on a edge and node weighted graph"
+        );
+
 
         python::def("_felzenszwalbSegmentation",registerConverters(&pyFelzenszwalbSegmentation),
             (
@@ -163,6 +183,18 @@ public:
                 python::arg("edgeWeights")
             )
         );
+
+
+
+        python::def("nodeGtToEdgeGt",registerConverters(&pyNodeGtToEdgeGt),
+            (
+                python::arg("graph"),
+                python::arg("nodeGt"),
+                python::arg("ignoreLabel"),
+                python::arg("out")=python::object()
+            )
+        );
+
         python::def("_opengmArgToLabeling",registerConverters(&pyMulticutArgToLabeling),
             (
                 python::arg("graph"),
@@ -178,6 +210,16 @@ public:
                 python::arg("out")=python::object()
             ),
             "apply wards method to an edgeIndicator"
+        );
+
+        python::def("find3Cycles", registerConverters(&pyFind3Cycles));
+        python::def("find3CyclesEdges", registerConverters(&pyFind3CyclesEdges));
+        python::def("cyclesEdges", registerConverters(&pyCyclesEdges),
+            (
+                python::arg("graph"),
+                python::arg("graph"),
+                python::arg("out") = python::object()
+            )
         );
     }
 
@@ -202,8 +244,8 @@ public:
 
     std::string clsName_;
     template <class classT>
-    void visit(classT& c) const
-    {   
+    void visit(classT& /*c*/) const
+    {
         // - watersheds-segmentation
         // - carving-segmentation
         // - felzenwalb-segmentation
@@ -217,6 +259,73 @@ public:
         // - recursiveGraphSmoothing
         exportSmoothingAlgorithms();
     }
+
+
+    static NumpyAnyArray pyFind3Cycles(
+        const GRAPH & graph
+    ){
+        NumpyArray<1, vigra::TinyVector<Int32, 3> > cycles;
+
+        MultiArray<1, vigra::TinyVector<Int32, 3> > cyclesArray;
+        find3Cycles(graph, cyclesArray);
+        cycles.reshapeIfEmpty(cyclesArray.shape());
+        cycles = cyclesArray;
+        return cycles;
+    }
+
+
+    static NumpyAnyArray pyFind3CyclesEdges(
+        const GRAPH & graph
+    ){
+        NumpyArray<1, vigra::TinyVector<Int32, 3> > cyclesEdges;
+
+        MultiArray<1, vigra::TinyVector<Int32, 3> > cyclesNodes;
+
+        find3Cycles(graph, cyclesNodes);
+        cyclesEdges.reshapeIfEmpty(cyclesNodes.shape());
+
+        Node nodes[3];
+        Edge edges[3];
+
+        for(std::ptrdiff_t i=0; i<cyclesNodes.size(); ++i){
+            for(size_t j=0; j<3; ++j){
+                nodes[j] = graph.nodeFromId(cyclesNodes(i)[j]);
+            }
+            edges[0] = graph.findEdge(nodes[0],nodes[1]);
+            edges[1] = graph.findEdge(nodes[0],nodes[2]);
+            edges[2] = graph.findEdge(nodes[1],nodes[2]);
+            for(size_t j=0; j<3; ++j){
+                cyclesEdges(i)[j] = graph.id(edges[j]);
+            }
+        }
+
+        return cyclesEdges;
+    }
+
+    static NumpyAnyArray pyCyclesEdges(
+        const GRAPH & graph,
+        NumpyArray<1, vigra::TinyVector<Int32, 3> > cycles,
+        NumpyArray<1, vigra::TinyVector<Int32, 3> > edgesOut
+    ){
+
+        Node nodes[3];
+        Edge edges[3];
+
+        edgesOut.reshapeIfEmpty(cycles.shape());
+        for(std::ptrdiff_t i=0; i<cycles.size(); ++i){
+            for(size_t j=0; j<3; ++j){
+                nodes[j] = graph.nodeFromId(cycles(i)[j]);
+            }
+            edges[0] = graph.findEdge(nodes[0],nodes[1]);
+            edges[1] = graph.findEdge(nodes[0],nodes[2]);
+            edges[2] = graph.findEdge(nodes[1],nodes[2]);
+            for(size_t j=0; j<3; ++j){
+                edgesOut(i)[j] = graph.id(edges[j]);
+            }
+        }
+        return edgesOut;
+    }
+
 
 
     static NumpyAnyArray pyWardCorrection(
@@ -246,6 +355,8 @@ public:
     }
 
 
+
+
     static python::tuple pyMulticutDataStructure(
         const Graph &           g,
         const FloatEdgeArray    edgeWeightsArray
@@ -258,7 +369,7 @@ public:
 
         NumpyArray<2,UInt32> vis      ((    typename NumpyArray<2,UInt64>::difference_type(g.edgeNum(),2)));
         NumpyArray<1,float > weights  ((    typename NumpyArray<1,double>::difference_type(g.edgeNum()  )));
-        
+
         size_t denseIndex = 0 ;
         for(NodeIt iter(g);iter!=lemon::INVALID;++iter){
             toDenseArrayMap[*iter]=denseIndex;
@@ -276,6 +387,24 @@ public:
         return python::make_tuple(vis,weights);
 
     }
+
+
+    static NumpyAnyArray pyNodeGtToEdgeGt(
+        const Graph &           g,
+        const UInt32NodeArray & nodeGt,
+        const Int64 ignoreLabel,
+        UInt32EdgeArray edgeGt
+    ){
+        edgeGt.reshapeIfEmpty(IntrinsicGraphShape<Graph>::intrinsicEdgeMapShape(g));
+
+        // numpy arrays => lemon maps
+        UInt32NodeArrayMap nodeGtMap(g,nodeGt);
+        UInt32EdgeArrayMap  edgeGtMap(g,edgeGt);
+        nodeGtToEdgeGt(g, nodeGtMap, ignoreLabel, edgeGtMap);
+        return edgeGt;
+    }
+
+
 
     static NumpyAnyArray pyMulticutArgToLabeling(
         const Graph &              g,
@@ -308,7 +437,7 @@ public:
             out(i)=nodeLabelArrayMap[g.nodeFromId(nodeIds(i))];
         return out;
     }
-    
+
     static NumpyAnyArray pyNodeIdsFeatures(
         const GRAPH & g,
         NumpyArray<1,Singleband<UInt32> >  nodeIds,
@@ -381,7 +510,7 @@ public:
         // numpy arrays => lemon maps
         FloatNodeArrayMap  nodeFeatureArrayMap(g,nodeFeaturesArray);
         FloatEdgeArrayMap  edgeWeightsArrayMap(g,edgeWeightsArray);
-        
+
         for(EdgeIt e(g);e!=lemon::INVALID;++e){
             const Edge edge(*e);
             const Node u=g.u(edge);
@@ -404,7 +533,7 @@ public:
         // numpy arrays => lemon maps
         MultiFloatNodeArrayMap nodeFeatureArrayMap(g,nodeFeaturesArray);
         FloatEdgeArrayMap      edgeWeightsArrayMap(g,edgeWeightsArray);
-        
+
         for(EdgeIt e(g);e!=lemon::INVALID;++e){
             const Edge edge(*e);
             const Node u=g.u(edge);
@@ -420,7 +549,7 @@ public:
         UInt32NodeArray seedsArray,
         UInt32NodeArray labelsArray
     ){
-        // resize output ? 
+        // resize output ?
         labelsArray.reshapeIfEmpty( IntrinsicGraphShape<Graph>::intrinsicNodeMapShape(g) );
 
         // numpy arrays => lemon maps
@@ -443,7 +572,7 @@ public:
         UInt32NodeArray     labelsArray
     ){
 
-        // resize output ? 
+        // resize output ?
         labelsArray.reshapeIfEmpty( IntrinsicGraphShape<Graph>::intrinsicNodeMapShape(g) );
 
 
@@ -462,9 +591,13 @@ public:
         //lemon_graph::graph_detail::generateWatershedSeeds(g, nodeWeightsArrayMap, labelsArrayMap, watershedsOption.seed_options);
         lemon_graph::watershedsGraph(g, nodeWeightsArrayMap, labelsArrayMap, watershedsOption);
         //lemon_graph::graph_detail::seededWatersheds(g, nodeWeightsArrayMap, seedsArrayMap, watershedsOption);
-        
+
         return labelsArray;
     }
+
+
+
+
 
     static NumpyAnyArray pyNodeWeightedWatershedsSeeds(
         const Graph &       g,
@@ -472,7 +605,7 @@ public:
         UInt32NodeArray     seedsArray
     ){
         const std::string method="regionGrowing";
-        // resize output ? 
+        // resize output ?
         seedsArray.reshapeIfEmpty( IntrinsicGraphShape<Graph>::intrinsicNodeMapShape(g) );
 
         WatershedOptions watershedsOption;
@@ -494,9 +627,10 @@ public:
         UInt32NodeArray seedsArray,
         const UInt32    backgroundLabel,
         const float     backgroundBias,
+        const float     noBiasBelow,
         UInt32NodeArray labelsArray
     ){
-        // resize output ? 
+        // resize output ?
         labelsArray.reshapeIfEmpty( IntrinsicGraphShape<Graph>::intrinsicNodeMapShape(g) );
 
         // numpy arrays => lemon maps
@@ -505,11 +639,40 @@ public:
         UInt32NodeArrayMap labelsArrayMap(g,labelsArray);
 
         // call algorithm itself
-        carvingSegmentation(g,edgeWeightsArrayMap,seedsArrayMap,backgroundLabel,backgroundBias,labelsArrayMap);
+        carvingSegmentation(g,edgeWeightsArrayMap,seedsArrayMap,backgroundLabel,backgroundBias,noBiasBelow,labelsArrayMap);
 
         // retun labels
         return labelsArray;
     }
+
+    static NumpyAnyArray pyShortestPathSegmentation(
+        const Graph &       g,
+        FloatEdgeArray      edgeWeightsArray,
+        FloatNodeArray      nodeWeightsArray,
+        UInt32NodeArray     seedsArray,
+        UInt32NodeArray     labelsArray
+    ){
+
+        // resize output ?
+        labelsArray.reshapeIfEmpty( IntrinsicGraphShape<Graph>::intrinsicNodeMapShape(g) );
+
+        // numpy arrays => lemon maps
+        FloatEdgeArrayMap  edgeWeightsArrayMap(g,edgeWeightsArray);
+        FloatNodeArrayMap  nodeWeightsArrayMap(g,nodeWeightsArray);
+        UInt32NodeArrayMap labelsArrayMap(g,labelsArray);
+
+
+
+        std::copy(seedsArray.begin(),seedsArray.end(),labelsArray.begin());
+
+        shortestPathSegmentation<
+            Graph,FloatEdgeArrayMap, FloatNodeArrayMap, UInt32NodeArrayMap, float
+        >(g, edgeWeightsArrayMap, nodeWeightsArrayMap, labelsArrayMap);
+
+
+        return labelsArray;
+    }
+
 
     static NumpyAnyArray pyFelzenszwalbSegmentation(
         const GRAPH & g,
@@ -519,7 +682,7 @@ public:
         const int nodeNumStop,
         UInt32NodeArray labelsArray
     ){
-        // resize output ? 
+        // resize output ?
         labelsArray.reshapeIfEmpty(  IntrinsicGraphShape<Graph>::intrinsicNodeMapShape(g) );
 
         // numpy arrays => lemon maps
@@ -570,7 +733,7 @@ public:
 
 
 template<class GRAPH>
-class LemonGridGraphAlgorithmAddonVisitor 
+class LemonGridGraphAlgorithmAddonVisitor
 :   public boost::python::def_visitor<LemonGridGraphAlgorithmAddonVisitor<GRAPH> >
 {
 public:
@@ -581,7 +744,7 @@ public:
 
     typedef LemonGraphAlgorithmVisitor<GRAPH> VisitorType;
     // Lemon Graph Typedefs
-    
+
     typedef typename Graph::index_type       index_type;
     typedef typename Graph::Edge             Edge;
     typedef typename Graph::Node             Node;
@@ -606,13 +769,15 @@ public:
     typedef NumpyArray<NodeMapDim,   Singleband<UInt32> > UInt32NodeArray;
     typedef NumpyArray<NodeMapDim,   Singleband<Int32 > > Int32NodeArray;
     typedef NumpyArray<NodeMapDim +1,Multiband <float > > MultiFloatNodeArray;
+    typedef NumpyArray<EdgeMapDim +1,Multiband <float > > MultiFloatEdgeArray;
+
 
     typedef NumpyScalarEdgeMap<Graph,FloatEdgeArray>         FloatEdgeArrayMap;
     typedef NumpyScalarNodeMap<Graph,FloatNodeArray>         FloatNodeArrayMap;
     typedef NumpyScalarNodeMap<Graph,UInt32NodeArray>        UInt32NodeArrayMap;
     typedef NumpyScalarNodeMap<Graph,Int32NodeArray>         Int32NodeArrayMap;
     typedef NumpyMultibandNodeMap<Graph,MultiFloatNodeArray> MultiFloatNodeArrayMap;
-
+    typedef NumpyMultibandEdgeMap<Graph,MultiFloatEdgeArray> MultiFloatEdgeArrayMap;
 
     typedef ShortestPathDijkstra<Graph,float> ShortestPathDijkstraType;
 
@@ -620,21 +785,21 @@ public:
     typedef typename GraphDescriptorToMultiArrayIndex<Graph>::IntrinsicNodeMapShape NodeCoordinate;
     typedef NumpyArray<1,NodeCoordinate>  NodeCoorinateArray;
 
-    LemonGridGraphAlgorithmAddonVisitor(const std::string & clsName){}
+    LemonGridGraphAlgorithmAddonVisitor(const std::string & /*clsName*/){}
 
 
     template <class classT>
     void visit(classT& c) const
-    {   
+    {
 
         // - edge weights from interpolated image
-        exportMiscAlgorithms();
+        exportMiscAlgorithms(c);
 
     }
 
+    template <class classT>
+    void exportMiscAlgorithms(classT & c)const{
 
-    void exportMiscAlgorithms()const{
-        
 
 
         python::def("edgeFeaturesFromInterpolatedImage",registerConverters(&pyEdgeWeightsFromInterpolatedImage),
@@ -643,8 +808,36 @@ public:
                 python::arg("image"),
                 python::arg("out")=python::object()
             ),
-            "convert an image with with ``shape = graph.shape*2 - 1`` to an edge weight array"
+            "convert an image with ``shape = graph.shape*2 - 1`` to an edge weight array"
         );
+
+        python::def("edgeFeaturesFromImage",registerConverters(&pyEdgeWeightsFromImage),
+            (
+                python::arg("graph"),
+                python::arg("image"),
+                python::arg("out")=python::object()
+            ),
+            "convert an image with shape = graph.shape OR shape = graph.shape *2 -1 to an edge weight array"
+        );
+
+        python::def("edgeFeaturesFromImage",registerConverters(&pyEdgeWeightsFromImageMb),
+            (
+                python::arg("graph"),
+                python::arg("image"),
+                python::arg("out")=python::object()
+            ),
+            "convert an image with shape = graph.shape OR shape = graph.shape *2 -1 to an edge weight array"
+        );
+
+
+        c
+        .def("affiliatedEdgesSerializationSize",&pyAffiliatedEdgesSerializationSize,
+            (
+                python::arg("rag"),
+                python::arg("affiliatedEdges")
+            )
+        );
+
 
         //'python::def("edgeFeaturesFromInterpolatedImageCorrected",registerConverters(&pyEdgeWeightsFromInterpolatedImageCorrected),
         //'    (
@@ -652,11 +845,84 @@ public:
         //'        python::arg("image"),
         //'        python::arg("out")=python::object()
         //'    ),
-        //'    "convert an image with with shape = graph.shape *2 -1 to an edge weight array"
+        //'    "convert an image with shape = graph.shape *2 -1 to an edge weight array"
         //'    ""
         //');
+
+
     }
 
+
+
+
+
+    static size_t pyAffiliatedEdgesSerializationSize(
+        const GRAPH & gridGraph,
+        const AdjacencyListGraph & rag,
+        const typename AdjacencyListGraph:: template EdgeMap< std::vector<Edge> > & affiliatedEdges
+    ){
+        return affiliatedEdgesSerializationSize(gridGraph, rag, affiliatedEdges);
+    }
+
+
+    static NumpyAnyArray pyEdgeWeightsFromImage(
+        const GRAPH & g,
+        const FloatNodeArray & image,
+        FloatEdgeArray edgeWeightsArray
+    ){
+
+        bool regularShape=true;
+        bool topologicalShape=true;
+
+        for(size_t d=0;d<NodeMapDim;++d){
+            if(image.shape(d)!=g.shape()[d]){
+                regularShape=false;
+            }
+            if(image.shape(d)!=2*g.shape()[d]-1){
+                topologicalShape=false;
+            }
+        }
+
+        if(regularShape)
+            return pyEdgeWeightsFromOrginalSizeImage(g,image,edgeWeightsArray);
+        else if(topologicalShape)
+            return pyEdgeWeightsFromInterpolatedImage(g,image,edgeWeightsArray);
+        else{
+            vigra_precondition(false, "shape of edge image does not match graph shape");
+            // to avid no return warnings
+            return pyEdgeWeightsFromOrginalSizeImage(g,image,edgeWeightsArray);
+        }
+    }
+
+
+    static NumpyAnyArray pyEdgeWeightsFromImageMb(
+        const GRAPH & g,
+        const MultiFloatNodeArray & image,
+        MultiFloatEdgeArray edgeWeightsArray
+    ){
+
+        bool regularShape=true;
+        bool topologicalShape=true;
+
+        for(size_t d=0;d<NodeMapDim;++d){
+            if(image.shape(d)!=g.shape()[d]){
+                regularShape=false;
+            }
+            if(image.shape(d)!=2*g.shape()[d]-1){
+                topologicalShape=false;
+            }
+        }
+
+        if(regularShape)
+            return pyEdgeWeightsFromOrginalSizeImageMb(g,image,edgeWeightsArray);
+        else if(topologicalShape)
+            return pyEdgeWeightsFromInterpolatedImageMb(g,image,edgeWeightsArray);
+        else{
+            vigra_precondition(false, "shape of edge image does not match graph shape");
+            // to avid no return warnings
+            return pyEdgeWeightsFromOrginalSizeImageMb(g,image,edgeWeightsArray);
+        }
+    }
 
 
     static NumpyAnyArray pyEdgeWeightsFromInterpolatedImage(
@@ -669,8 +935,6 @@ public:
             //std::cout<<"is "<<interpolatedImage.shape(d)<<"gs "<<2*g.shape()[d]-1<<"\n";
             vigra_precondition(interpolatedImage.shape(d)==2*g.shape()[d]-1, "interpolated shape must be shape*2 -1");
         }
-
-
         edgeWeightsArray.reshapeIfEmpty( IntrinsicGraphShape<Graph>::intrinsicEdgeMapShape(g) );
 
         // numpy arrays => lemon maps
@@ -683,6 +947,110 @@ public:
             const CoordType vCoord(g.v(edge));
             const CoordType tCoord = uCoord+vCoord;
             edgeWeightsArrayMap[edge]=interpolatedImage[tCoord];
+        }
+        return edgeWeightsArray;
+    }
+
+    static NumpyAnyArray pyEdgeWeightsFromOrginalSizeImage(
+        const GRAPH & g,
+        const FloatNodeArray & image,
+        FloatEdgeArray edgeWeightsArray
+    ){
+
+        for(size_t d=0;d<NodeMapDim;++d){
+            //std::cout<<"is "<<image.shape(d)<<"gs "<<2*g.shape()[d]-1<<"\n";
+            vigra_precondition(image.shape(d)==g.shape()[d], "interpolated shape must be shape*2 -1");
+        }
+        edgeWeightsArray.reshapeIfEmpty( IntrinsicGraphShape<Graph>::intrinsicEdgeMapShape(g) );
+
+        // numpy arrays => lemon maps
+        FloatEdgeArrayMap edgeWeightsArrayMap(g,edgeWeightsArray);
+        typedef typename FloatNodeArray::difference_type CoordType;
+        for(EdgeIt iter(g); iter!=lemon::INVALID; ++ iter){
+
+            const Edge edge(*iter);
+            const CoordType uCoord(g.u(edge));
+            const CoordType vCoord(g.v(edge));
+            edgeWeightsArrayMap[edge]=(image[uCoord]+image[vCoord])/2.0;
+        }
+        return edgeWeightsArray;
+    }
+
+
+
+    static NumpyAnyArray pyEdgeWeightsFromInterpolatedImageMb(
+        const GRAPH & g,
+        const MultiFloatNodeArray & interpolatedImage,
+        MultiFloatEdgeArray edgeWeightsArray
+    ){
+
+        for(size_t d=0;d<NodeMapDim;++d){
+            //std::cout<<"is "<<interpolatedImage.shape(d)<<"gs "<<2*g.shape()[d]-1<<"\n";
+            vigra_precondition(interpolatedImage.shape(d)==2*g.shape()[d]-1, "interpolated shape must be shape*2 -1");
+        }
+
+        // resize out
+        typename MultiArray<EdgeMapDim+1,int>::difference_type outShape;
+        for(size_t d=0;d<EdgeMapDim;++d){
+            outShape[d]=IntrinsicGraphShape<Graph>::intrinsicEdgeMapShape(g)[d];
+        }
+        outShape[EdgeMapDim] = interpolatedImage.shape(NodeMapDim);
+
+        edgeWeightsArray.reshapeIfEmpty(   MultiFloatEdgeArray::ArrayTraits::taggedShape(outShape,"nc") );
+
+
+        // numpy arrays => lemon maps
+        MultiFloatEdgeArrayMap edgeWeightsArrayMap(g,edgeWeightsArray);
+        typedef typename FloatNodeArray::difference_type CoordType;
+        for(EdgeIt iter(g); iter!=lemon::INVALID; ++ iter){
+
+            const Edge edge(*iter);
+            const CoordType uCoord(g.u(edge));
+            const CoordType vCoord(g.v(edge));
+            const CoordType tCoord = uCoord+vCoord;
+            edgeWeightsArrayMap[edge]=interpolatedImage[tCoord];
+        }
+        return edgeWeightsArray;
+    }
+
+
+    static NumpyAnyArray pyEdgeWeightsFromOrginalSizeImageMb(
+        const GRAPH & g,
+        const MultiFloatNodeArray & image,
+        MultiFloatEdgeArray edgeWeightsArray
+    ){
+
+        for(size_t d=0;d<NodeMapDim;++d){
+            //std::cout<<"is "<<image.shape(d)<<"gs "<<2*g.shape()[d]-1<<"\n";
+            vigra_precondition(image.shape(d)==g.shape()[d], "interpolated shape must be shape*2 -1");
+        }
+
+        // resize out
+        typename MultiArray<EdgeMapDim+1,int>::difference_type outShape;
+        for(size_t d=0;d<EdgeMapDim;++d){
+            outShape[d]=IntrinsicGraphShape<Graph>::intrinsicEdgeMapShape(g)[d];
+        }
+        outShape[EdgeMapDim] = image.shape(NodeMapDim);
+
+
+        //edgeWeightsArray.reshapeIfEmpty( IntrinsicGraphShape<Graph>::intrinsicEdgeMapShape(outShape),"ec" );
+
+
+        edgeWeightsArray.reshapeIfEmpty(   MultiFloatEdgeArray::ArrayTraits::taggedShape(outShape,"nc") );
+
+
+        // numpy arrays => lemon maps
+        MultiFloatEdgeArrayMap edgeWeightsArrayMap(g,edgeWeightsArray);
+        typedef typename FloatNodeArray::difference_type CoordType;
+        for(EdgeIt iter(g); iter!=lemon::INVALID; ++ iter){
+
+            const Edge edge(*iter);
+            const CoordType uCoord(g.u(edge));
+            const CoordType vCoord(g.v(edge));
+            MultiArray<1, float>  val = image[uCoord];
+            val+=image[vCoord];
+            val/=2.0;
+            edgeWeightsArrayMap[edge]=val;
         }
         return edgeWeightsArray;
     }
