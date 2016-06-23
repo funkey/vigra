@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import vigra
 import vigra.graphs as vigraph
 import pylab
@@ -11,11 +13,11 @@ from matplotlib.widgets import Slider, Button, RadioButtons
 
 def makeWeights(gamma):
     global hessian,gradmag,gridGraph
-    print "hessian",hessian.min(),hessian.max()
-    print "raw ",raw.min(),raw.max()
+    print("hessian",hessian.min(),hessian.max())
+    print("raw ",raw.min(),raw.max())
     wImg= numpy.exp((gradmag**0.5)*gamma*-1.0)#**0.5
     wImg = numpy.array(wImg).astype(numpy.float32)
-    w=vigra.graphs.edgeFeaturesFromInterpolatedImage(gridGraph,wImg)
+    w=vigra.graphs.implicitMeanEdgeMap(gridGraph,wImg)
     return w
 
 def makeVisuImage(path,img):
@@ -40,7 +42,7 @@ f       = '69015.jpg'
 img     = vigra.impex.readImage(f)
 
 
-print img.shape
+print(img.shape)
 
 if(img.shape[2]==1):
     img    = numpy.concatenate([img]*3,axis=2)
@@ -59,19 +61,18 @@ img-=img.min()
 img/=img.max()
 img*=255
 
-print imgLab.shape
+print(imgLab.shape)
 
 
-print "interpolate image"
-imgLabBig = vigra.resize(imgLab,[imgLab.shape[0]*2-1,imgLab.shape[1]*2-1 ])
-
+print("interpolate image")
+imgLabSmall = imgLab
 
 # make a few edge weights
 
-gradmag = numpy.squeeze(vigra.filters.gaussianGradientMagnitude(imgLabBig,sigma))
-hessian = numpy.squeeze(vigra.filters.hessianOfGaussianEigenvalues(imgLabBig[:,:,0],sigma))[:,:,0]
+gradmag = numpy.squeeze(vigra.filters.gaussianGradientMagnitude(imgLabSmall,sigma))
+hessian = numpy.squeeze(vigra.filters.hessianOfGaussianEigenvalues(imgLabSmall[:,:,0],sigma))[:,:,0]
 hessian-=hessian.min()
-raw     = 256-imgLabBig[:,:,0].copy()
+raw     = 256-imgLabSmall[:,:,0].copy()
 gridGraph  = vigraph.gridGraph(imgLab.shape[:2],False)  
 
 
@@ -107,7 +108,7 @@ def onclick(event):
     if event.xdata != None and event.ydata != None:
         xRaw,yRaw = event.xdata,event.ydata
         if not frozen and xRaw >=0.0 and yRaw>=0.0 and xRaw<img.shape[0] and yRaw<img.shape[1]:
-            x,y = long(math.floor(event.xdata)),long(math.floor(event.ydata))
+            x,y = int(math.floor(event.xdata)),int(math.floor(event.ydata))
             clickList.append((x,y))
             if len(clickList)==2:
                 source = gridGraph.coordinateToNode(clickList[0])
@@ -131,10 +132,10 @@ def unfreeze(event):
 
 def onslide(event):
     global img,gradmag,weights,clickList,sgamma
-    weights[:]  = makeWeights(sgamma.val)
-    print "onslide",clickList
+    weights  = makeWeights(sgamma.val)
+    print("onslide",clickList)
     if len(clickList)>=2:
-        print "we have  path"
+        print("we have  path")
         source = gridGraph.coordinateToNode(clickList[0])
         target = gridGraph.coordinateToNode(clickList[1])
         path = pathFinder.run(weights, source,target).path(pathType='coordinates')

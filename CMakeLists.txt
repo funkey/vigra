@@ -25,8 +25,11 @@ SET(CMAKE_MODULE_PATH  ${CMAKE_MODULE_PATH}  ${vigra_SOURCE_DIR}/config)
 
 include(VigraSetDefaults)
 include(VigraCMakeUtils)
-
 INCLUDE_DIRECTORIES(${vigra_SOURCE_DIR}/include)
+
+if(SUPPRESS_3RD_PARTY_WARNINGS)
+    set(SUPPRESS_WARNINGS SYSTEM)
+endif()
 
 IF(VIGRA_STATIC_LIB)
     SET(LIBTYPE STATIC)
@@ -39,16 +42,16 @@ IF (MSVC)
     ADD_DEFINITIONS(-D_CRT_SECURE_NO_DEPRECATE -D_SCL_SECURE_NO_DEPRECATE)
 ENDIF ()
 
-IF("${CMAKE_CXX_COMPILER_ID}" MATCHES "(GNU|Clang)")
+IF(CMAKE_CXX_COMPILER_ID MATCHES "(GNU|Clang)")
     set(SUFFICIENT_TEMPLATE_DEPTH FALSE)
     TRY_COMPILE(SUFFICIENT_TEMPLATE_DEPTH
                 ${CMAKE_BINARY_DIR} ${PROJECT_SOURCE_DIR}/config/checkTemplateDepth.cxx
-                COMPILE_DEFINITIONS "-DDEPTH=900") 
-            
+                COMPILE_DEFINITIONS "-DDEPTH=900")
+
     IF(SUFFICIENT_TEMPLATE_DEPTH)
         MESSAGE(STATUS "Checking template recursion depth: ok")
     ELSE()
-        if("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
+        if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
             # As of cmake 2.8.10, there is a variable CMAKE_CXX_COMPILER_VERSION.
             # Emulate it by a compiler call if not present.
             IF(NOT CMAKE_CXX_COMPILER_VERSION)
@@ -65,20 +68,28 @@ IF("${CMAKE_CXX_COMPILER_ID}" MATCHES "(GNU|Clang)")
                 SET(WITH_VIGRANUMPY 0)
             elseif(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "4.5.0")
                 # gcc 4.4.x syntax is -ftemplate-depth-900 (not =900)
-                SET(CMAKE_CXX_FLAGS "-ftemplate-depth-900 ${CMAKE_CXX_FLAGS}" CACHE STRING  "Flags used by the compiler during all build types" FORCE)        
+                SET(CMAKE_CXX_FLAGS "-ftemplate-depth-900 ${CMAKE_CXX_FLAGS}")
                 MESSAGE(STATUS "Checking template recursion depth: using -ftemplate-depth-900")
             else()
                 # new syntax is =900, not -900
-                SET(CMAKE_CXX_FLAGS "-ftemplate-depth=900 ${CMAKE_CXX_FLAGS}" CACHE STRING  "Flags used by the compiler during all build types" FORCE)        
+                SET(CMAKE_CXX_FLAGS "-ftemplate-depth=900 ${CMAKE_CXX_FLAGS}")
                 MESSAGE(STATUS "Checking template recursion depth: using -ftemplate-depth=900")
             endif()
         else()
             # clang uses newer gcc syntax
-            SET(CMAKE_CXX_FLAGS "-ftemplate-depth=900 ${CMAKE_CXX_FLAGS}" CACHE STRING  "Flags used by the compiler during all build types" FORCE)        
+            SET(CMAKE_CXX_FLAGS "-ftemplate-depth=900 ${CMAKE_CXX_FLAGS}")
             MESSAGE(STATUS "Checking template recursion depth: using -ftemplate-depth=900")
         endif()
     ENDIF()
 ENDIF()
+
+if(MSVC)
+    string(REGEX MATCH "[0-9.]+" MSVC_VERSION ${CMAKE_GENERATOR})
+endif()
+
+if(MACOSX)
+    set(CMAKE_MACOSX_RPATH 1)
+endif()
 
 ##################################################
 #
@@ -94,6 +105,7 @@ VIGRA_FIND_PACKAGE(PNG)
 VIGRA_FIND_PACKAGE(FFTW3 NAMES libfftw3-3 libfftw-3.3)
 VIGRA_FIND_PACKAGE(FFTW3F NAMES libfftw3f-3 libfftwf-3.3)
 
+
 IF(WITH_OPENEXR)
     VIGRA_FIND_PACKAGE(OpenEXR)
 ENDIF()
@@ -102,7 +114,23 @@ IF(WITH_HDF5)
     VIGRA_FIND_PACKAGE(HDF5)
 ENDIF()
 
+IF(WITH_LEMON)
+    VIGRA_FIND_PACKAGE(LEMON)
+ENDIF()
+
+SET(DOXYGEN_SKIP_DOT TRUE)
+FIND_PACKAGE(Doxygen)
+
+FIND_PACKAGE(PythonInterp ${PYTHON_VERSION})
+
+##################################################
+#
+#     configure boost dependency
+#
+##################################################
+
 set(WITH_BOOST "OFF")
+set(BOOST_MINIMUM_VERSION "1.40.0")
 set(WITH_BOOST_COMPONENTS "")
 
 IF(WITH_BOOST_GRAPH)
@@ -111,50 +139,70 @@ ENDIF()
 
 IF(WITH_VIGRANUMPY)
     set(WITH_BOOST "ON")
-    set(WITH_BOOST_COMPONENTS ${WITH_BOOST_COMPONENTS} python)
+    # Do not add "python" to WITH_BOOST_COMPONENTS. It is more
+    # reliabe to use 'FIND_LIBRARY' in FindVIGRANUMPY_DEPENDENCIES.
 ENDIF()
 
 IF(WITH_BOOST_THREAD)
     set(WITH_BOOST "ON")
     set(WITH_BOOST_COMPONENTS ${WITH_BOOST_COMPONENTS} thread system date_time chrono)
-    ADD_DEFINITIONS(-DUSE_BOOST_THREAD)
+    set(BOOST_MINIMUM_VERSION "1.55.0")
 ENDIF()
 
 IF(WITH_BOOST)
-    VIGRA_FIND_PACKAGE( Boost 1.40.0 COMPONENTS ${WITH_BOOST_COMPONENTS})
-    
-    if(Boost_FOUND AND WITH_BOOST_COMPONENTS)
-        # configure boost's autolink magic to use the right library name
-        # (default on Windows is a mangled name like 'boost_python-vc110-mt-1_51.lib')
-        if(("${Boost_PYTHON_LIBRARY}" MATCHES "boost_python\\.lib") OR
-           ("${Boost_SYSTEM_LIBRARY}" MATCHES "boost_system\\.lib"))
-            ADD_DEFINITIONS(-DBOOST_AUTO_LINK_NOMANGLE)
-        endif()
-    endif()
+    VIGRA_FIND_PACKAGE(Boost ${BOOST_MINIMUM_VERSION} COMPONENTS ${WITH_BOOST_COMPONENTS})
+    # FIXME: the following may be unstable between cmake versions
+    SET(Boost_LIB_SUFFIX "${_boost_COMPILER}${_boost_MULTITHREADED}-${Boost_LIB_VERSION}")
 ENDIF()
 
-IF(WITH_LEMON)
-    VIGRA_FIND_PACKAGE(LEMON)
-ENDIF()
-
-SET(DOXYGEN_SKIP_DOT TRUE)
-FIND_PACKAGE(Doxygen)
-FIND_PACKAGE(PythonInterp 2)
-
-IF(WITH_VIGRANUMPY)
-    FIND_PACKAGE( VIGRANUMPY_DEPENDENCIES )
-ENDIF()
-
-IF(WITH_VALGRIND)
-    FIND_PROGRAM(VALGRIND_EXECUTABLE valgrind)
-ENDIF()
+if(WITH_BOOST AND Boost_FOUND)
+    INCLUDE_DIRECTORIES(${SUPPRESS_WARNINGS} ${Boost_INCLUDE_DIR})
+    IF(WITH_BOOST_THREAD)
+        ADD_DEFINITIONS(-DUSE_BOOST_THREAD)
+    ENDIF()
+endif()
 
 # Must be included AFTER boost is found.
 include(VigraDetectThreading)
 include(VigraConfigureThreading)
 
+# Should come after VigraDetectThreading, since that updates the -std flag.
 include(VigraDetectCppVersion)
 VIGRA_DETECT_CPP_VERSION()
+
+IF(WITH_VIGRANUMPY)
+    FIND_PACKAGE(VIGRANUMPY_DEPENDENCIES)
+ENDIF()
+
+if(WITH_BOOST AND Boost_FOUND)
+    # configure boost's autolink magic to use the right library name
+    # (default on Windows is a mangled name like 'boost_system-vc110-mt-1_51.lib')
+    if((Boost_SYSTEM_LIBRARY MATCHES "boost_system\\.lib") OR
+       (Boost_PYTHON_LIBRARY MATCHES "boost_python\\.lib") OR
+       (Boost_PYTHON_LIBRARY MATCHES "boost_python${PYTHON_VERSION_MAJOR}\\.lib"))
+        set(Boost_MANGLED_NAMES 0)
+        ADD_DEFINITIONS(-DBOOST_AUTO_LINK_NOMANGLE)
+    else()
+        set(Boost_MANGLED_NAMES 1)
+    endif()
+    if((Boost_SYSTEM_LIBRARY AND
+        NOT Boost_SYSTEM_LIBRARY MATCHES "libboost_system") OR
+       (Boost_PYTHON_LIBRARY AND
+        NOT Boost_PYTHON_LIBRARY MATCHES "libboost_python"))
+        ADD_DEFINITIONS(-DBOOST_ALL_DYN_LINK)
+    endif()
+endif()
+
+IF(WITH_VALGRIND)
+    FIND_PROGRAM(VALGRIND_EXECUTABLE valgrind)
+ENDIF()
+
+########################################
+#  finalize compiler flags
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}"
+    CACHE STRING  "Flags used by the C compiler during all build types" FORCE)
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}"
+    CACHE STRING  "Flags used by the C++ compiler during all build types" FORCE)
 
 ##################################################
 #
@@ -190,16 +238,16 @@ ENABLE_TESTING()
 ADD_CUSTOM_TARGET(doc)
 
 # Automatically push the latest documentation to github's gh-pages.
-# This only works when ${DOCDIR} refers to a VIGRA repository that is 
-# checked out in branch 'gh-pages', and the present repository is 
+# This only works when ${DOCDIR} refers to a VIGRA repository that is
+# checked out in branch 'gh-pages', and the present repository is
 # in branch 'master' (these conditions are checked in the script).
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
-    configure_file(${PROJECT_SOURCE_DIR}/config/update-gh-pages.sh.in 
+    configure_file(${PROJECT_SOURCE_DIR}/config/update-gh-pages.sh.in
                    ${PROJECT_BINARY_DIR}/update-gh-pages.sh @ONLY)
     EXECUTE_PROCESS(COMMAND chmod u+x ${PROJECT_BINARY_DIR}/update-gh-pages.sh OUTPUT_QUIET ERROR_QUIET)
-       
-    ADD_CUSTOM_TARGET(gh-pages 
+
+    ADD_CUSTOM_TARGET(gh-pages
           ${PROJECT_BINARY_DIR}/update-gh-pages.sh
           DEPENDS doc
           WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
@@ -257,7 +305,7 @@ INCLUDE(CPackConfig)
 #
 ##################################################
 
-find_program(GIT_EXECUTABLE 
+find_program(GIT_EXECUTABLE
               NAMES git git.exe git.cmd
               HINTS $ENV{ProgramFiles}/Git/bin
               DOC "git command line client")
@@ -269,7 +317,7 @@ CONFIGURE_FILE(${PROJECT_SOURCE_DIR}/config/package-src.cmake.in
 add_custom_target(PACKAGE_SRC_TAR
                    COMMAND ${CMAKE_COMMAND} -P package-src.cmake
                    WORKING_DIRECTORY "${PROJECT_BINARY_DIR}"
-                   COMMENT "Creating ${PROJECT_BINARY_DIR}/vigra-${vigra_version}-src.tar.gz")        
+                   COMMENT "Creating ${PROJECT_BINARY_DIR}/vigra-${vigra_version}-src.tar.gz")
 
 ADD_DEPENDENCIES(PACKAGE_SRC_TAR check)
 ADD_DEPENDENCIES(PACKAGE_SRC_TAR doc_cpp)

@@ -29,7 +29,7 @@
 /*    HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,      */
 /*    WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING      */
 /*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR     */
-/*    OTHER DEALINGS IN THE SOFTWARE.                                   */                
+/*    OTHER DEALINGS IN THE SOFTWARE.                                   */
 /*                                                                      */
 /************************************************************************/
 
@@ -49,7 +49,9 @@
 #include "vigra/priority_queue.hxx"
 #include "vigra/algorithm.hxx"
 #include "vigra/compression.hxx"
+#include "vigra/multi_blocking.hxx"
 
+#include "vigra/any.hxx"
 
 using namespace vigra;
 
@@ -60,18 +62,18 @@ struct ArrayVectorTest
     typedef Vector::iterator Iterator;
     typedef Vector::const_iterator ConstIterator;
     typedef StandardValueAccessor<value_type> Accessor;
-    
+
     Vector vector_;
 
     ArrayVectorTest()
     {}
-    
+
     void testAccessor()
     {
         vector_.resize(3, 0);
         Iterator i = vector_.begin();
         ConstIterator ci = const_cast<Vector const &>(vector_).begin();
-        
+
         StandardValueAccessor<value_type> sva;
         StandardConstValueAccessor<value_type> scva;
         sva.set(3, i);
@@ -89,7 +91,7 @@ struct ArrayVectorTest
         shouldEqual(sva(i, 2), 5);
         shouldEqual(scva(i, 2), 5);
         shouldEqual(scva(ci, 2), 5);
-        
+
         StandardAccessor<value_type> sa;
         StandardConstAccessor<value_type> sca;
         sa.set(6, i);
@@ -107,12 +109,12 @@ struct ArrayVectorTest
         shouldEqual(sa(i, 2), 8);
         shouldEqual(sca(i, 2), 8);
         shouldEqual(sca(ci, 2), 8);
-        
+
         Vector varray[] = { vector_, vector_, vector_ };
         Vector  * v = varray;
         Vector const * cv = varray;
         int k;
-        
+
         VectorComponentAccessor<Vector> vca(0);
         for(k = 0; k<2; ++k, vca.setIndex(k))
         {
@@ -129,7 +131,7 @@ struct ArrayVectorTest
             shouldEqual(v[1][k], 3 + k);
             shouldEqual(v[2][k], 3 + k);
         }
-        
+
         VectorComponentValueAccessor<Vector> vcva(0);
         for(k = 0; k<2; ++k, vcva.setIndex(k))
         {
@@ -215,14 +217,35 @@ struct ArrayVectorTest
     void testBackInsertion()
     {
         static value_type data[] = { 0, 1, 2, 3, 4 };
-        
+
         shouldEqual(vector_.size(), 0u);
-        
+
         Accessor a;
         copyLine(data, data + 5, a, std::back_inserter(vector_), a);
-        
+
         shouldEqual(vector_.size(), 5u);
         shouldEqualSequence(vector_.begin(), vector_.end(), data);
+    }
+
+    void testBackInsertionUntilReallocation()
+    {
+        // regression test for bug appearing with VC14,
+        // see https://github.com/ukoethe/vigra/issues/256
+
+        shouldEqual(vector_.size(), 0u);
+
+        // the bug is triggered when reserve()ing a capacity of 1024,
+        // which results in a memory block of 4096 bytes and thus
+        // reaches a "big allocation" threshold in VC14's
+        // std::allocator
+        const unsigned int N = 1030u;
+        const value_type value = 42;
+
+        std::fill_n(std::back_inserter(vector_), N, value);
+
+        shouldEqual(vector_.size(), N);
+        shouldEqual(vector_[0], value);
+        shouldEqual(vector_[N-1], value);
     }
 
     void testAmbiguousConstructor()
@@ -244,10 +267,10 @@ struct BucketQueueTest
             return (int)v;
         }
     };
-    
+
     ArrayVector<double> data;
     ArrayVector<int> idata;
-    
+
     BucketQueueTest()
     {
         data.push_back(1.1);
@@ -256,76 +279,76 @@ struct BucketQueueTest
         data.push_back(2.2);
         data.push_back(3.6);
         data.push_back(4.5);
-        
+
         idata.resize(data.size());
         std::transform(data.begin(), data.end(), idata.begin(), Priority());
     }
-    
+
     void testDescending()
     {
         std::priority_queue<int> queue;
         BucketQueue<int> bqueue;
-        
+
         for(unsigned int k=0; k<idata.size(); ++k)
         {
             queue.push(idata[k]);
             bqueue.push(idata[k], idata[k]);
         }
-        
+
         shouldEqual(idata.size(), bqueue.size());
         shouldEqual(false, bqueue.empty());
-        
+
         for(unsigned int k=0; k<idata.size(); ++k)
         {
             shouldEqual(queue.top(), bqueue.top());
             queue.pop();
             bqueue.pop();
         }
-        
+
         shouldEqual(0u, bqueue.size());
-        shouldEqual(true, bqueue.empty());        
+        shouldEqual(true, bqueue.empty());
     }
-    
+
     void testAscending()
     {
         std::priority_queue<int, std::vector<int>, std::greater<int> > queue;
         BucketQueue<int, true> bqueue;
-        
+
         for(unsigned int k=0; k<idata.size(); ++k)
         {
             queue.push(idata[k]);
             bqueue.push(idata[k], idata[k]);
         }
-        
+
         shouldEqual(idata.size(), bqueue.size());
         shouldEqual(false, bqueue.empty());
-        
+
         for(unsigned int k=0; k<idata.size(); ++k)
         {
             shouldEqual(queue.top(), bqueue.top());
             queue.pop();
             bqueue.pop();
         }
-        
+
         shouldEqual(0u, bqueue.size());
-        shouldEqual(true, bqueue.empty());        
+        shouldEqual(true, bqueue.empty());
     }
-    
+
     void testDescendingMapped()
     {
         Priority priority;
         std::priority_queue<int> queue;
         MappedBucketQueue<double, Priority> bqueue;
-        
+
         for(unsigned int k=0; k<data.size(); ++k)
         {
             queue.push(idata[k]);
             bqueue.push(data[k]);
         }
-        
+
         shouldEqual(data.size(), bqueue.size());
         shouldEqual(false, bqueue.empty());
-        
+
         for(unsigned int k=0; k<data.size(); ++k)
         {
             shouldEqual(queue.top(), priority(bqueue.top()));
@@ -341,26 +364,26 @@ struct BucketQueueTest
             queue.pop();
             bqueue.pop();
         }
-        
+
         shouldEqual(0u, bqueue.size());
-        shouldEqual(true, bqueue.empty());        
+        shouldEqual(true, bqueue.empty());
     }
-    
+
     void testAscendingMapped()
     {
         Priority priority;
         std::priority_queue<int, std::vector<int>, std::greater<int> > queue;
         MappedBucketQueue<double, Priority, true> bqueue;
-        
+
         for(unsigned int k=0; k<data.size(); ++k)
         {
             queue.push(idata[k]);
             bqueue.push(data[k]);
         }
-        
+
         shouldEqual(data.size(), bqueue.size());
         shouldEqual(false, bqueue.empty());
-        
+
         for(unsigned int k=0; k<data.size(); ++k)
         {
             shouldEqual(queue.top(), priority(bqueue.top()));
@@ -376,9 +399,9 @@ struct BucketQueueTest
             queue.pop();
             bqueue.pop();
         }
-        
+
         shouldEqual(0u, bqueue.size());
-        shouldEqual(true, bqueue.empty());        
+        shouldEqual(true, bqueue.empty());
     }
 };
 
@@ -395,7 +418,7 @@ struct ChangeablePriorityQueueTest
 
 
     void testMinQueue(){
-        const float tol=0.001;
+        const float tol=0.001f;
         {
             MinQueueType q(4);
 
@@ -647,7 +670,7 @@ struct ChangeablePriorityQueueTest
     }
 
     void testMaxQueue(){
-        const float tol=0.001;
+        const float tol=0.001f;
         {
             MaxQueueType q(4);
 
@@ -1066,25 +1089,25 @@ struct MetaprogrammingTest
 {
     struct TrueResult {};
     struct FalseResult {};
-    
-    struct Derived 
-    : public TrueResult 
+
+    struct Derived
+    : public TrueResult
     {
         typedef TrueResult result_type;
         typedef TrueResult value_type;
     };
-    
+
     void testInt()
     {
         shouldEqual(MetaInt<1>::value, 1);
         shouldEqual((MetaMax<1,2>::value), 2);
         shouldEqual((MetaMin<1,2>::value), 1);
     }
- 
+
     void testLogic()
     {
         shouldEqual(VigraTrueType::value, true);
-        shouldEqual(VigraFalseType::value, false);        
+        shouldEqual(VigraFalseType::value, false);
         should(typeid(Not<VigraFalseType>::type) == typeid(VigraTrueType));
         should(typeid(Not<VigraTrueType>::type) == typeid(VigraFalseType));
         should(typeid(And<VigraTrueType, VigraTrueType>::type) == typeid(VigraTrueType));
@@ -1100,7 +1123,7 @@ struct MetaprogrammingTest
         should(typeid(IfBool<true, TrueResult, FalseResult>::type) == typeid(TrueResult));
         should(typeid(IfBool<false, TrueResult, FalseResult>::type) == typeid(FalseResult));
     }
- 
+
     void testTypeTools()
     {
         should(typeid(IsSameType<TrueResult, TrueResult>::type) == typeid(VigraTrueType));
@@ -1133,32 +1156,28 @@ struct MetaprogrammingTest
         should(typeid(UnqualifiedType<const int*&>::type) == typeid(int));
     }
 
-#if 0
     struct FinallyTester
     {
-        mutable int & v_;
+        int & v_;
 
         FinallyTester(int & v)
             : v_(v)
         {}
-        
+
         void sq() const
         {
-            v_ = v_*v_;
+            const_cast<int &>(v_) = v_*v_;
         }
     };
-#endif
 
     void testFinally()
     {
-        std::cout << "testFinally() is disabled because many compilers do not yet support it." << std::endl;
-#if 0
         int v = 0;
         {
             FinallyTester finally_tester(v);
             VIGRA_FINALLY(finally_tester.sq());
 
-            VIGRA_FINALLY({ 
+            VIGRA_FINALLY({
                 v = 3;
             });
             shouldEqual(v, 0);
@@ -1174,7 +1193,6 @@ struct MetaprogrammingTest
         }
         catch(std::runtime_error &) {}
         shouldEqual(v, 2);
-#endif
     }
 };
 
@@ -1195,26 +1213,26 @@ void stringTest()
 struct CompressionTest
 {
     ArrayVector<char> data;
-    
+
     CompressionTest()
     : data(1000000)
     {
         linearSequence(data.begin(), data.end(), 0);
     }
-    
+
     void testZLIB()
     {
         ArrayVector<char> compressed;
     #ifdef HasZLIB
         compress(data.begin(), data.size(), compressed, ZLIB);
-        
+
         shouldEqual(compressed.size(), 4206);
-        
+
         ArrayVector<char> decompressed(data.size());
-        
+
         uncompress(compressed.begin(), compressed.size(),
                    decompressed.begin(), decompressed.size(), ZLIB);
-                   
+
         shouldEqualSequence(data.begin(), data.end(), decompressed.begin());
     #else
         try
@@ -1228,38 +1246,273 @@ struct CompressionTest
             std::string message(c.what());
             should(0 == expected.compare(message.substr(0,expected.size())));
         }
-        
+
     #endif
     }
-    
+
     void testLZ4()
     {
         ArrayVector<char> compressed;
         compress(data.begin(), data.size(), compressed, LZ4);
-        
+
         shouldEqual(compressed.size(), 4187);
-        
+
         ArrayVector<char> decompressed(data.size());
-        
+
         uncompress(compressed.begin(), compressed.size(),
                    decompressed.begin(), decompressed.size(), LZ4);
-                   
+
         shouldEqualSequence(data.begin(), data.end(), decompressed.begin());
     }
-    
+
     void testNoCompression()
     {
         ArrayVector<char> compressed;
         compress(data.begin(), data.size(), compressed, NO_COMPRESSION);
-        
+
         shouldEqual(compressed.size(), data.size());
-        
+
         ArrayVector<char> decompressed(data.size());
-        
+
         uncompress(compressed.begin(), compressed.size(),
                    decompressed.begin(), decompressed.size(), NO_COMPRESSION);
-                   
+
         shouldEqualSequence(data.begin(), data.end(), decompressed.begin());
+    }
+};
+
+
+struct MultiBlockingTest
+{
+    void test2d()
+    {
+        typedef MultiBlocking<2> Mb;
+        typedef Mb::Shape Shape;
+        typedef Mb::Block Block;
+        typedef Mb::Block Block;
+
+        typedef Mb::BlockWithBorder BlockWithBorder;
+        typedef Mb::BlockWithBorderIter BlockWithBorderIter;
+        typedef Mb::BlockIter BlockIter;
+        {
+            Shape shape(10,11), blockShape(4,5);
+            Mb blocking(shape, blockShape);
+            shouldEqual(blocking.numBlocks(),9);
+
+
+            BlockWithBorderIter bwbIter  = blocking.blockWithBorderBegin(Shape(1));
+            BlockIter bIter = blocking.blockBegin();
+
+            // get the first block
+            shouldEqual(bIter[0].begin()[0], 0);
+            shouldEqual(bIter[0].begin()[1], 0);
+            shouldEqual(bIter[0].end()[0], 4);
+            shouldEqual(bIter[0].end()[1], 5);
+
+            // get the second block
+            const Block b1 = bIter[1];
+            shouldEqual(b1.begin()[0], 4);
+            shouldEqual(b1.begin()[1], 0);
+            shouldEqual(b1.end()[0], 8);
+            shouldEqual(b1.end()[1], 5);
+
+            // get the third block
+            Block b2 = bIter[2];
+            shouldEqual(b2.begin()[0], 8);
+            shouldEqual(b2.begin()[1], 0);
+            shouldEqual(b2.end()[0], 10);
+            shouldEqual(b2.end()[1], 5);
+
+            //  first block with border
+            const BlockWithBorder bb0 = bwbIter[0];
+            shouldEqual(bb0.core().begin()[0], 0);
+            shouldEqual(bb0.core().begin()[1], 0);
+            shouldEqual(bb0.core().end()[0], 4);
+            shouldEqual(bb0.core().end()[1], 5);
+
+            shouldEqual(bb0.border().begin()[0], 0);
+            shouldEqual(bb0.border().begin()[1], 0);
+            shouldEqual(bb0.border().end()[0], 5);
+            shouldEqual(bb0.border().end()[1], 6);
+
+            //  second block with border
+            const BlockWithBorder bb1 = bwbIter[1];
+            shouldEqual(bb1.core().begin()[0], 4);
+            shouldEqual(bb1.core().begin()[1], 0);
+            shouldEqual(bb1.core().end()[0], 8);
+            shouldEqual(bb1.core().end()[1], 5);
+
+            shouldEqual(bb1.border().begin()[0], 3);
+            shouldEqual(bb1.border().begin()[1], 0);
+            shouldEqual(bb1.border().end()[0], 9);
+            shouldEqual(bb1.border().end()[1], 6);
+
+            //  third block with border
+            const BlockWithBorder bb2 = bwbIter[2];
+            shouldEqual(bb2.core().begin()[0], 8);
+            shouldEqual(bb2.core().begin()[1], 0);
+            shouldEqual(bb2.core().end()[0], 10);
+            shouldEqual(bb2.core().end()[1], 5);
+
+            shouldEqual(bb2.border().begin()[0], 7);
+            shouldEqual(bb2.border().begin()[1], 0);
+            shouldEqual(bb2.border().end()[0], 10);
+            shouldEqual(bb2.border().end()[1], 6);
+        }
+    }
+
+
+    void test2dWithRoi()
+    {
+        typedef MultiBlocking<2> Mb;
+        typedef Mb::Shape Shape;
+        //typedef Mb::Block Block;
+        typedef Mb::BlockIter BlockIter;
+        //typedef Mb::BlockWithBorder BlockWithBorder;
+        {
+
+
+            Shape shape(13,14), blockShape(4,5), roiBegin(1,2), roiEnd(9,11);
+            Mb blocking(shape, blockShape, roiBegin, roiEnd);
+            shouldEqual(blocking.numBlocks(),4);
+
+            BlockIter bIter = blocking.blockBegin();
+
+            shouldEqual(bIter[0].begin(), Shape(1,2));
+            shouldEqual(bIter[0].end(),   Shape(5,7));
+            shouldEqual(bIter[1].begin(), Shape(5,2));
+            shouldEqual(bIter[1].end(),   Shape(9,7));
+            shouldEqual(bIter[2].begin(), Shape(1,7));
+            shouldEqual(bIter[2].end(),   Shape(5,11));
+            shouldEqual(bIter[3].begin(), Shape(5,7));
+            shouldEqual(bIter[3].end(),   Shape(9,11));
+        }
+    }
+
+    void test2dIterator()
+    {
+        typedef MultiBlocking<2> Mb;
+        typedef Mb::Shape Shape;
+        //typedef  Mb::Block Block;
+        typedef Mb::BlockWithBorder BlockWithBorder;
+        typedef  Mb::BlockWithBorderIter BlockWithBorderIter;
+        {
+            Shape shape(13,14), blockShape(4,5), roiBegin(1,2), roiEnd(9,11), width(2,3);
+            Mb blocking(shape, blockShape, roiBegin, roiEnd);
+            shouldEqual(blocking.numBlocks(),4);
+
+            {
+                std::vector<BlockWithBorder> bwbVec(blocking.blockWithBorderBegin(width),
+                                                    blocking.blockWithBorderEnd(width));
+                shouldEqual(bwbVec.size(),4);
+            }
+
+            BlockWithBorderIter begin  = blocking.blockWithBorderBegin(width);
+            BlockWithBorderIter end    = begin.getEndIterator();
+            shouldEqual(begin+4==end, true);
+        }
+    }
+};
+
+struct AnyTest
+{
+    void test()
+    {
+        Any a(10), b = a, c;
+
+        should(bool(a));
+        shouldNot(bool(c));
+        should(c == false);
+        should(false == c);
+        shouldNot(a.empty());
+        should(c.empty());
+        should(a == b);
+        shouldNot(a != b);
+        shouldNot(a == c);
+        should(a != c);
+
+        should(a.is_type<int>());
+        should(a.is_readable<int>());
+        should(a.is_readable<float>());
+        shouldNot(c.is_type<int>());
+
+        c = a;
+        should(a == c);
+        shouldNot(a != c);
+        should(c.is_type<int>());
+
+        shouldEqual(a.get<int>(), 10);
+        shouldEqual(b.get<int>(), 10);
+
+        b.destroy();
+        shouldNot(bool(b));
+        should(b.empty());
+
+        try {
+            a.get<float>();
+            failTest("no exception thrown");
+        }
+        catch(std::exception & e)
+        {
+            std::string expected("\nPrecondition violation!\nAny::get(): object is not an instance of the target type.");
+            std::string message(e.what());
+            should(0 == expected.compare(message.substr(0,expected.size())));
+        }
+
+        try {
+            b.get<int>();
+            failTest("no exception thrown");
+        }
+        catch(std::exception & e)
+        {
+            std::string expected("\nPrecondition violation!\nAny::get(): object empty.");
+            std::string message(e.what());
+            should(0 == expected.compare(message.substr(0,expected.size())));
+        }
+
+        shouldEqual(a.read<unsigned int>(), 10u);
+        shouldEqual(a.read<float>(), 10.0f);
+        shouldEqual(a.read<double>(), 10.0);
+
+        a.get<int>() = 11;
+        shouldEqual(a.get<int>(), 11);
+
+        a = 12.25;
+        shouldEqual(a.get<double>(), 12.25);
+
+        try {
+            a.get<int>();
+            failTest("no exception thrown");
+        }
+        catch(std::exception & e)
+        {
+            std::string expected("\nPrecondition violation!\nAny::get(): object is not an instance of the target type.");
+            std::string message(e.what());
+            should(0 == expected.compare(message.substr(0,expected.size())));
+        }
+
+        shouldEqual(a.read<int>(), 12);
+        shouldEqual(a.read<unsigned int>(), 12u);
+        shouldEqual(a.read<float>(), 12.25f);
+
+        swap(a, c);
+        shouldEqual(a.get<int>(), 10);
+        shouldEqual(c.get<double>(), 12.25);
+
+        typedef std::shared_ptr<int> P;
+        Any s(P(new int(5))), t(s);
+        shouldEqual(s.get<P>().get(), t.get<P>().get());
+        shouldEqual(*(s.get<P>()), 5);
+        try {
+            s.read<int>();
+            failTest("no exception thrown");
+        }
+        catch(std::exception & e)
+        {
+            std::string expected("\nPrecondition violation!\nAny::read(): object is not covertible to the target type.");
+            std::string message(e.what());
+            should(0 == expected.compare(message.substr(0,expected.size())));
+        }
     }
 };
 
@@ -1269,8 +1522,13 @@ struct UtilitiesTestSuite
     UtilitiesTestSuite()
     : vigra::test_suite("UtilitiesTestSuite")
     {
+        add( testCase( &MultiBlockingTest::test2d));
+        add( testCase( &MultiBlockingTest::test2dWithRoi));
+        add( testCase( &MultiBlockingTest::test2dIterator));
+
         add( testCase( &ArrayVectorTest::testAccessor));
         add( testCase( &ArrayVectorTest::testBackInsertion));
+        add( testCase( &ArrayVectorTest::testBackInsertionUntilReallocation));
         add( testCase( &ArrayVectorTest::testAmbiguousConstructor));
         add( testCase( &BucketQueueTest::testDescending));
         add( testCase( &BucketQueueTest::testAscending));
@@ -1287,6 +1545,8 @@ struct UtilitiesTestSuite
         add( testCase( &CompressionTest::testZLIB));
         add( testCase( &CompressionTest::testLZ4));
         add( testCase( &CompressionTest::testNoCompression));
+
+        add( testCase( &AnyTest::test));
     }
 };
 

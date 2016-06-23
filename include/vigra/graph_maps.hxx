@@ -61,7 +61,7 @@ public:
     typedef Value           value_type;
     typedef Reference       reference;
     typedef ConstReference  const_reference;
-    typedef boost::read_write_property_map_tag category;
+    typedef boost_graph::read_write_property_map_tag category;
 
 
     typedef typename MultiArray<1,T>::difference_type Shape1Type;
@@ -120,7 +120,7 @@ public:
     :   DenseReferenceMapType(ItemHelper::itemNum(g)==0 ? 0: ItemHelper::maxItemId(g) ){
 
     }
-    DenseGraphItemReferenceMap(const Graph & g,typename DenseReferenceMapType::ConstReference value)
+    DenseGraphItemReferenceMap(const Graph & g,typename DenseReferenceMapType::ConstReference)
     :   DenseReferenceMapType(ItemHelper::itemNum(g)==0 ? 0: ItemHelper::maxItemId(g)){
 
     }
@@ -207,7 +207,7 @@ public:
     typedef Value           value_type;
     typedef ConstReference  const_reference;
 
-    typedef boost::readable_property_map_tag category;
+    typedef boost_graph::readable_property_map_tag category;
 
     OnTheFlyEdgeMap(const Graph & graph,const NodeMap & nodeMap,FUNCTOR & f)
     :   graph_(graph),
@@ -233,6 +233,91 @@ private:
     FUNCTOR & f_;
 };
 
+
+// node map that returns zero (specifically, <tt>RESULT()</tt>) for all keys
+template<class G, class RESULT>
+class ZeroNodeMap
+{
+  public:
+    typedef G  Graph;
+    typedef typename Graph::Node Key;
+    typedef RESULT   Value;
+    typedef RESULT   ConstReference;
+
+    typedef Key             key_type;
+    typedef Value           value_type;
+    typedef ConstReference  const_reference;
+    typedef boost_graph::readable_property_map_tag category;
+
+    ZeroNodeMap()
+    {}
+
+    value_type operator[](const Key &) const
+    {
+        return value_type();
+    }
+};
+
+
+
+template<class T_OUT>
+struct MeanFunctor{
+    template<class T>
+    T_OUT operator()(const T & a, const T & b)const{
+        return static_cast<T_OUT>(a+b)/static_cast<T_OUT>(2.0);
+    }
+
+};
+
+
+// implicit edge map:
+// the values of a node map are converted
+// to an edge map.
+// FUNCTOR is used to convert the two
+// node map values corresponding to an edge to
+// an edge map value
+template<class G,class NODE_MAP,class FUNCTOR,class RESULT>
+class OnTheFlyEdgeMap2{
+
+public:
+    typedef G  Graph;
+    typedef typename Graph::Node Node;
+    typedef NODE_MAP  NodeMap;
+    typedef typename  Graph::Edge      Key;
+    typedef RESULT   Value;
+    typedef RESULT   ConstReference;
+
+    typedef Key             key_type;
+    typedef Value           value_type;
+    typedef ConstReference  const_reference;
+
+    typedef boost_graph::readable_property_map_tag category;
+
+    OnTheFlyEdgeMap2(const Graph & graph,const NodeMap & nodeMap,FUNCTOR  f)
+    :   graph_(graph),
+        nodeMap_(nodeMap),
+        f_(f){
+    }
+
+    ConstReference operator[](const Key & key){
+        const Node u(graph_.u(key));
+        const Node v(graph_.v(key));
+        return f_(nodeMap_[u],nodeMap_[v]);
+    }
+
+    ConstReference operator[](const Key & key)const{
+        const Node u(graph_.u(key));
+        const Node v(graph_.v(key));
+        return f_(nodeMap_[u],nodeMap_[v]);
+    }
+private:
+
+    const Graph & graph_;
+    const NodeMap nodeMap_;
+    FUNCTOR  f_;
+};
+
+
 // convert 2 edge maps with a functor into a single edge map
 template<class G,class EDGE_MAP_A,class EDGE_MAP_B,class FUNCTOR,class RESULT>
 class BinaryOpEdgeMap{
@@ -246,7 +331,7 @@ public:
     typedef Value           value_type;
     typedef ConstReference  const_reference;
 
-    typedef boost::readable_property_map_tag category;
+    typedef boost_graph::readable_property_map_tag category;
 
     BinaryOpEdgeMap(const Graph & graph,const EDGE_MAP_A & edgeMapA,const EDGE_MAP_B & edgeMapB,FUNCTOR & f)
     :   graph_(graph),
@@ -266,6 +351,44 @@ private:
     const EDGE_MAP_A & edgeMapA_;
     const EDGE_MAP_B & edgeMapB_;
     FUNCTOR & f_;
+};
+
+
+
+// encapsulate a MultiArrayView indexed by node/edge ID
+template<class T,class GRAPH, class KEY>
+struct ArrayMap{
+
+    typedef MultiArrayView<1, T>  View;
+    typedef KEY    Key;
+    typedef typename View::value_type  Value;
+    typedef typename View::const_reference  ConstReference;
+    typedef typename View::reference  Reference;
+
+    ArrayMap(const GRAPH & graph)
+    :   graph_(graph),
+        view_(){
+    }
+
+    ArrayMap(const GRAPH & graph, const View & view)
+    :   graph_(graph),
+        view_(view){
+    }
+
+    void setArray(const MultiArrayView<1, T> & view){
+        view_ = view;
+    }
+
+    Reference operator[](const Key & key){
+       return view_(graph_.id(key));
+    }
+
+    ConstReference operator[](const Key & key)const{
+        return view_(graph_.id(key));
+    }
+    const GRAPH & graph_;
+    MultiArrayView<1, T> view_;
+
 };
 
 

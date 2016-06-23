@@ -227,7 +227,16 @@ public:
             shouldEqual(array3[k], k+100);
         for(int k=100; k<200; ++k)
             shouldEqual(array3[k], k-100);
-
+            
+        MultiArrayView <3, scalar_type> varray1 = array;
+        MultiArrayView <3, scalar_type> varray2 = array3.subarray (Shape(0,1,0), Shape(3,4,5));
+        shouldEqual (varray1.shape(), Shape(4,4,4));
+        shouldEqual (varray2.shape(), Shape(3,3,5));
+        varray2.swap(varray1);
+        shouldEqual (varray2.shape(), Shape(4,4,4));
+        shouldEqual (varray1.shape(), Shape(3,3,5));
+        shouldEqual (varray2.data(), array.data());
+        shouldEqual (varray1.data(), &array3(0,1,0));
     }
         
     // stridearray tests
@@ -449,7 +458,10 @@ public:
             std::string message(c.what());
             should(0 == expected.compare(message.substr(0,expected.size())));
         }
+	array.reset();
+	array = array3.subarray(Shape(0,0,0), Shape(10,1,1)); // possible after reset.
         MultiArrayView <3, scalar_type, array3_stride> subarray = array3.subarray(Shape(0,0,0), Shape(10,1,1));
+	should(subarray == array);
         subarray = array3.subarray(Shape(0,1,0), Shape(10,2,1)); // should overwrite the data
         for(unsigned int k=0; k<10; ++k)
             shouldEqual(array3(k,0,0), array3(k,1,0));
@@ -1181,7 +1193,7 @@ public:
         shouldEqual (countx, 30);
         shouldEqual (county, 15);
         shouldEqual (countz, 5);
-        shouldEqual (seqi, a3.end());
+        should (seqi == a3.end());
         
         // test direct navigation
         traverser3_t i3 = a3.traverser_begin();
@@ -1316,7 +1328,7 @@ public:
         shouldEqual (countx, 30);
         shouldEqual (county, 15);
         shouldEqual (countz, 5);
-        shouldEqual (seqi, a3.end());
+        should (seqi == a3.end());
         //
         //// test direct navigation
         //traverser3_t i3 = a3.traverser_begin();
@@ -1436,9 +1448,9 @@ public:
         
         strided_array_t st = a3.stridearray (shape3_t(3,4,6));
 
-        shouldEqual (st.shape (0), 6);
-        shouldEqual (st.shape (1), 7);
-        shouldEqual (st.shape (2), 8);
+        shouldEqual (st.shape (0), 7);
+        shouldEqual (st.shape (1), 8);
+        shouldEqual (st.shape (2), 9);
         
         // test hierarchical navigation
         typedef strided_array_t::traverser Traverser3;
@@ -1465,9 +1477,9 @@ public:
             ++countz;
         }
 
-        shouldEqual (countx, 336u);
-        shouldEqual (county, 56u);
-        shouldEqual (countz, 8u);
+        shouldEqual (countx, 504u);
+        shouldEqual (county, 72u);
+        shouldEqual (countz, 9u);
   
         // test direct navigation
         strided_array_t::traverser i = st.traverser_begin();        
@@ -1724,7 +1736,7 @@ struct ImageViewTest
     static typename Image::value_type data[];
 
     ImageViewTest()
-    : ma(TinyVector<int, 2>(3,3)),
+    : ma(Shape2(3,3)),
       img(makeBasicImageView(ma))
     {
         typename Image::Accessor acc = img.accessor();
@@ -1856,9 +1868,8 @@ struct ImageViewTest
     void testStridedImageView()
     {
         // create stride MultiArrayView
-        typename MA::difference_type
-            start(0,0), end(2,2);
-        MA roi = ma.subarray(start, end);
+        Shape2 start(0,0), end(2, 2);
+        typename MA::view_type roi = ma.subarray(start, end);
 
         // inspect both the MultiArrayView and the corresponding BasicImageView
         vigra::FindSum<typename Image::value_type> sum1, sum2;

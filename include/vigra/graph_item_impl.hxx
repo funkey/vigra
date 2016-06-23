@@ -43,9 +43,9 @@ namespace vigra{
             typedef typename GRAPH::NodeStorage::AdjacencyElement AdjacencyElement;
 
             static bool valid(
-                const GRAPH & g,
-                const AdjacencyElement & adj,
-                const typename GRAPH::index_type ownNodeId
+                const GRAPH &,
+                const AdjacencyElement &,
+                const typename GRAPH::index_type /*ownNodeId*/
             ){
                 return true;
             }
@@ -54,7 +54,7 @@ namespace vigra{
              static ResultType transform(
                 const GRAPH & g,
                 const AdjacencyElement & adj,
-                const typename GRAPH::index_type ownNodeId
+                const typename GRAPH::index_type /*ownNodeId*/
             ){
                 return g.nodeFromId(adj.nodeId());    
             }
@@ -68,9 +68,9 @@ namespace vigra{
             typedef typename GRAPH::NodeStorage::AdjacencyElement AdjacencyElement;
 
             static bool valid(
-                const GRAPH & g,
-                const AdjacencyElement & adj,
-                const typename GRAPH::index_type ownNodeId
+                const GRAPH &,
+                const AdjacencyElement &,
+                const typename GRAPH::index_type /*ownNodeId*/
             ){
                 return true;
             }
@@ -78,7 +78,7 @@ namespace vigra{
             static ResultType transform(
                 const GRAPH & g,
                 const AdjacencyElement & adj,
-                const typename GRAPH::index_type ownNodeId
+                const typename GRAPH::index_type /*ownNodeId*/
             ){
                 return g.edgeFromId(adj.edgeId());    
             }
@@ -92,7 +92,7 @@ namespace vigra{
             typedef typename GRAPH::NodeStorage::AdjacencyElement AdjacencyElement;
             
             static bool valid(
-                const GRAPH & g,
+                const GRAPH &,
                 const AdjacencyElement & adj,
                 const typename GRAPH::index_type ownNodeId
             ){
@@ -102,7 +102,7 @@ namespace vigra{
             static ResultType transform(
                 const GRAPH & g,
                 const AdjacencyElement & adj,
-                const typename GRAPH::index_type ownNodeId
+                const typename GRAPH::index_type /*ownNodeId*/
             ){
                 return g.edgeFromId(adj.edgeId());
             }
@@ -115,7 +115,7 @@ namespace vigra{
             typedef typename GRAPH::NodeStorage::AdjacencyElement AdjacencyElement;
             
             static bool valid(
-                const GRAPH & g,
+                const GRAPH &,
                 const AdjacencyElement & adj,
                 const typename GRAPH::index_type ownNodeId
             ){
@@ -137,9 +137,9 @@ namespace vigra{
             typedef typename GRAPH::NodeStorage::AdjacencyElement AdjacencyElement;
             
             static bool valid(
-                const GRAPH & g,
-                const AdjacencyElement & adj,
-                const typename GRAPH::index_type ownNodeId
+                const GRAPH &,
+                const AdjacencyElement &,
+                const typename GRAPH::index_type /*ownNodeId*/
             ){
                 return  true;
             } 
@@ -162,16 +162,16 @@ namespace vigra{
             typedef typename GRAPH::NodeStorage::AdjacencyElement AdjacencyElement;
             
             static bool valid(
-                const GRAPH & g,
-                const AdjacencyElement & adj,
-                const typename GRAPH::index_type ownNodeId
+                const GRAPH &,
+                const AdjacencyElement &,
+                const typename GRAPH::index_type /*ownNodeId*/
             ){
                 return  true;
             } 
             ResultType static transform(
                 const GRAPH & g,
                 const AdjacencyElement & adj,
-                const typename GRAPH::index_type ownNodeId
+                const typename GRAPH::index_type /*ownNodeId*/
             ){
                 return g.direct(g.edgeFromId(adj.edgeId()) ,g.nodeFromId(adj.nodeId()));
             }
@@ -196,7 +196,7 @@ namespace vigra{
             //typedef typename GraphItemHelper<GRAPH,typename FILTER::ResultType>  ResultItem
 
             // default constructor
-            GenericIncEdgeIt(const lemon::Invalid & invalid = lemon::INVALID)
+            GenericIncEdgeIt(const lemon::Invalid & /*invalid*/ = lemon::INVALID)
             :   nodeImpl_(NULL),
                 graph_(NULL),
                 ownNodeId_(-1),
@@ -333,7 +333,7 @@ namespace vigra{
                 typedef typename SetType::const_iterator AdjIt;
             public:
 
-                GenericNodeImpl(const lemon::Invalid iv=lemon::INVALID)
+                GenericNodeImpl(const lemon::Invalid /*iv*/=lemon::INVALID)
                 :  id_(-1){
                 }
 
@@ -352,6 +352,9 @@ namespace vigra{
                     adjacency_.insert(other.adjacency_.begin(),other.adjacency_.end());
                 }
 
+                void setId(const index_type id){
+                    id_=id;
+                }
                 
                 std::pair<index_type,bool> findEdge(const index_type nodeId)const{
                     AdjIt iter = adjacency_.find(AdjacencyElement(nodeId,0));
@@ -380,13 +383,16 @@ namespace vigra{
                 index_type id()const{
                     return id_;
                 }
-                void clear(){
-                    adjacency_.clear();
-                }
+
 
                 void eraseFromAdjacency(const index_type nodeId){
                     // edge id does not matter?
                     adjacency_.erase(AdjacencyElement(nodeId,0));
+                }
+
+                void clear(){
+                    adjacency_.clear();
+                    id_=-1;
                 }
 
                 SetType adjacency_;
@@ -400,7 +406,7 @@ namespace vigra{
             public:
                 typedef INDEX_TYPE index_type;
 
-                GenericEdgeImpl(const lemon::Invalid iv=lemon::INVALID)
+                GenericEdgeImpl(const lemon::Invalid /*iv*/=lemon::INVALID)
                 :    vigra::TinyVector<INDEX_TYPE,3>(-1){
                 }
 
@@ -424,7 +430,7 @@ namespace vigra{
         public:
             typedef INDEX_TYPE index_type;
 
-            GenericArc(const lemon::Invalid & iv = lemon::INVALID)
+            GenericArc(const lemon::Invalid & /*iv*/ = lemon::INVALID)
             :   id_(-1),
                 edgeId_(-1){
 
@@ -472,7 +478,7 @@ namespace vigra{
         public:
             typedef INDEX_TYPE index_type;
 
-            GenericEdge(const lemon::Invalid & iv = lemon::INVALID)
+            GenericEdge(const lemon::Invalid & /*iv*/ = lemon::INVALID)
             : id_(-1){
 
             }
@@ -518,7 +524,7 @@ namespace vigra{
         public:
             typedef INDEX_TYPE index_type;
 
-            GenericNode(const lemon::Invalid & iv = lemon::INVALID)
+            GenericNode(const lemon::Invalid & /*iv*/ = lemon::INVALID)
             : id_(-1){
 
             }
